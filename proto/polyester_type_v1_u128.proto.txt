@@ -1,5 +1,0 @@
-// polyester/type/v1/u128.proto  package=polyester.type.v1
-message U128 {
-  optional 6 hi = 1;
-  optional 6 lo = 2;
-}

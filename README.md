@@ -81,11 +81,10 @@ Both wrappers load `PK` from `.env`.
 - `poly.py` -- ConnectRPC transport (in-page `fetch`, JSON encoding)
 - `strat.py` -- multi-pair strategy + P&L / position state
 - `trade_var.py` / `daily.py` -- drivers (one line to stdout, logs to stderr)
-- `cdp_browser.py` -- real-Chrome launcher + CDP attach + Cloudflare wait
-- `browser.py` -- Playwright request-context helper (shares the CDP cookies)
+- `cdp_browser.py` -- real-Chrome launcher + CDP attach + Cloudflare challenge handling
 - `w3wallet.py` -- signing bridge (`personal_sign`, EIP-712, raw tx)
 - `wallet_provider.js` -- injected EIP-1193 provider
-- `proto/` -- decoded ConnectRPC API schemas
+- `proto/API.md` -- decoded ConnectRPC API schemas
 
 ## Notes
 

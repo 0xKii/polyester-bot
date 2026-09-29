@@ -41,8 +41,8 @@ class Poly:
                 import time as _t
                 _t.sleep(2)
                 try:
-                    import browser as B
-                    B.pass_cf(self.page, 60, "-api")
+                    import cdp_browser as CB
+                    CB.pass_cf(self.page, 60, "-api")
                 except Exception:
                     pass
         raise last

@@ -46,17 +46,6 @@ def save_state(st):
     STATE.write_text(json.dumps(st, indent=1))
 
 
-def u128(v, scale):
-    """U128 {lo,hi} or number -> int scaled."""
-    if v is None:
-        return 0
-    if isinstance(v, dict):
-        lo = int(v.get("lo", "0"))
-        hi = int(v.get("hi", "0"))
-        return hi * (2 ** 64) + lo
-    return int(v)
-
-
 def mid_price(poly, symbol_id):
     ob = poly.call("orderbook.v1.OrderbookService/GetOrderBook",
                    {"symbolId": symbol_id, "depth": 2})["body"] or {}
@@ -167,23 +156,3 @@ def run_cycle(bot, poly, pairs_cfg, picks=5):
     tot_pnl = sum(v.get("pnl_closed", 0.0) for v in st.values()) + sum(c[2] for c in closed)
     log(f"strat | open=[{open_pos}] | closed={closed if closed else '-'} | actions={actions if actions else '-'} | cumPnL={tot_pnl:+.3f}")
     return {"actions": actions, "closed": closed}
-
-
-def get_qty_from_fill(poly, symbol_id, before_ts, side=1):
-    """after an order: read our trade fill to get executed base qty."""
-    t = poly.trades()
-    body = t["body"] or {}
-    best = None
-    for tr in body.get("trades", []):
-        if tr.get("symbolId") != symbol_id:
-            continue
-        ts = tr.get("ts_ns") or 0
-        if int(ts) / 1e9 < before_ts - 5:
-            continue
-        if tr.get("side") != side:
-            continue
-        best = tr
-    if best is None:
-        return None
-    qty = float(best.get("qtyScaled", best.get("qty_scaled", 0)))
-    return qty
