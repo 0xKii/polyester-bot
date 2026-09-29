@@ -1,0 +1,167 @@
+// auth/v1/mfa.proto  package=auth.v1
+enum SessionLevel {
+  SESSION_LEVEL_UNSPECIFIED = 0;
+  PRIMARY_AUTHENTICATED = 1;
+  MFA_ELEVATED = 2;
+  FRESH_STEP_UP = 3;
+}
+enum MFAFactorType {
+  MFA_FACTOR_TYPE_UNSPECIFIED = 0;
+  MFA_FACTOR_TYPE_TOTP = 1;
+  MFA_FACTOR_TYPE_PASSKEY = 2;
+  MFA_FACTOR_TYPE_RECOVERY_CODE = 3;
+}
+enum MFAChallengePurpose {
+  MFA_CHALLENGE_PURPOSE_UNSPECIFIED = 0;
+  MFA_CHALLENGE_PURPOSE_SESSION_ELEVATION = 1;
+  MFA_CHALLENGE_PURPOSE_FRESH_STEP_UP = 2;
+}
+message SessionInfo {
+  optional 9 session_id = 1;
+  optional .auth.v1.SessionLevel session_level = 2;
+  repeated 9 authentication_methods = 3;
+  optional .google.protobuf.Timestamp auth_time = 4;
+}
+message MFAFactor {
+  optional 9 factor_id = 1;
+  optional .auth.v1.MFAFactorType factor_type = 2;
+  optional 9 label = 3;
+  optional .google.protobuf.Timestamp created_at = 4;
+  optional .google.protobuf.Timestamp last_used_at = 5;
+}
+message ListMFAFactorsRequest {
+}
+message ListMFAFactorsResponse {
+  repeated .auth.v1.MFAFactor factors = 1;
+  optional 8 has_recovery_codes = 2;
+}
+message BeginTOTPEnrollmentRequest {
+  optional 9 label = 1;
+}
+message BeginTOTPEnrollmentResponse {
+  optional 9 enrollment_id = 1;
+  optional 9 secret = 2;
+  optional 9 otpauth_uri = 3;
+  optional .google.protobuf.Timestamp expires_at = 4;
+}
+message FinishTOTPEnrollmentRequest {
+  optional 9 enrollment_id = 1;
+  optional 9 code = 2;
+}
+message FinishTOTPEnrollmentResponse {
+  optional .auth.v1.MFAFactor factor = 1;
+  repeated 9 recovery_codes = 2;
+  optional .auth.v1.SessionInfo session = 3;
+  optional 9 access_token = 4;
+  optional .google.protobuf.Timestamp access_token_expires_at = 5;
+}
+message BeginPasskeyEnrollmentRequest {
+  optional 9 label = 1;
+}
+message BeginPasskeyEnrollmentResponse {
+  optional 9 enrollment_id = 1;
+  optional .google.protobuf.Struct public_key = 2;
+  optional .google.protobuf.Timestamp expires_at = 3;
+}
+message FinishPasskeyEnrollmentRequest {
+  optional 9 enrollment_id = 1;
+  optional .google.protobuf.Struct credential = 2;
+}
+message FinishPasskeyEnrollmentResponse {
+  optional .auth.v1.MFAFactor factor = 1;
+  repeated 9 recovery_codes = 2;
+  optional .auth.v1.SessionInfo session = 3;
+  optional 9 access_token = 4;
+  optional .google.protobuf.Timestamp access_token_expires_at = 5;
+}
+message BeginMFAChallengeRequest {
+  optional .auth.v1.MFAChallengePurpose purpose = 1;
+}
+message BeginMFAChallengeResponse {
+  optional 9 challenge_id = 1;
+  repeated .auth.v1.MFAFactorType allowed_factor_types = 2;
+  optional .google.protobuf.Struct public_key = 3;
+  optional .google.protobuf.Timestamp expires_at = 4;
+}
+message VerifyTOTPChallengeRequest {
+  optional 9 challenge_id = 1;
+  optional 9 code = 2;
+}
+message FinishPasskeyChallengeRequest {
+  optional 9 challenge_id = 1;
+  optional .google.protobuf.Struct credential = 2;
+}
+message VerifyRecoveryCodeChallengeRequest {
+  optional 9 challenge_id = 1;
+  optional 9 recovery_code = 2;
+}
+message CompleteMFAChallengeResponse {
+  optional .auth.v1.SessionInfo session = 1;
+  optional 9 access_token = 2;
+  optional .google.protobuf.Timestamp access_token_expires_at = 3;
+  optional 9 step_up_token = 4;
+  optional .google.protobuf.Timestamp step_up_expires_at = 5;
+}
+message ClaimFreshStepUpRequest {
+  optional 9 request_id = 1;
+  optional 9 action_type = 2;
+  optional 9 subject = 3;
+}
+message ClaimFreshStepUpResponse {
+  optional 9 step_up_id = 1;
+  optional 9 claim_nonce = 2;
+  optional .google.protobuf.Timestamp claim_expires_at = 3;
+}
+message ConsumeFreshStepUpRequest {
+  optional 9 step_up_id = 1;
+  optional 9 request_id = 2;
+  optional 9 action_type = 3;
+  optional 9 subject = 4;
+  optional 9 claim_nonce = 5;
+}
+message ConsumeFreshStepUpResponse {
+}
+message ReleaseFreshStepUpRequest {
+  optional 9 step_up_id = 1;
+  optional 9 request_id = 2;
+  optional 9 action_type = 3;
+  optional 9 subject = 4;
+  optional 9 claim_nonce = 5;
+  optional 9 reason = 6;
+}
+message ReleaseFreshStepUpResponse {
+}
+message UpdateMFAFactorRequest {
+  optional 9 factor_id = 1;
+  optional 9 label = 2;
+}
+message UpdateMFAFactorResponse {
+  optional .auth.v1.MFAFactor factor = 1;
+}
+message DeleteMFAFactorRequest {
+  optional 9 factor_id = 1;
+}
+message DeleteMFAFactorResponse {
+}
+message RegenerateRecoveryCodesRequest {
+}
+message RegenerateRecoveryCodesResponse {
+  repeated 9 recovery_codes = 1;
+}
+service MFAService {
+  rpc ListMFAFactors(.auth.v1.ListMFAFactorsRequest) returns (.auth.v1.ListMFAFactorsResponse);
+  rpc BeginTOTPEnrollment(.auth.v1.BeginTOTPEnrollmentRequest) returns (.auth.v1.BeginTOTPEnrollmentResponse);
+  rpc FinishTOTPEnrollment(.auth.v1.FinishTOTPEnrollmentRequest) returns (.auth.v1.FinishTOTPEnrollmentResponse);
+  rpc BeginPasskeyEnrollment(.auth.v1.BeginPasskeyEnrollmentRequest) returns (.auth.v1.BeginPasskeyEnrollmentResponse);
+  rpc FinishPasskeyEnrollment(.auth.v1.FinishPasskeyEnrollmentRequest) returns (.auth.v1.FinishPasskeyEnrollmentResponse);
+  rpc BeginMFAChallenge(.auth.v1.BeginMFAChallengeRequest) returns (.auth.v1.BeginMFAChallengeResponse);
+  rpc VerifyTOTPChallenge(.auth.v1.VerifyTOTPChallengeRequest) returns (.auth.v1.CompleteMFAChallengeResponse);
+  rpc FinishPasskeyChallenge(.auth.v1.FinishPasskeyChallengeRequest) returns (.auth.v1.CompleteMFAChallengeResponse);
+  rpc VerifyRecoveryCodeChallenge(.auth.v1.VerifyRecoveryCodeChallengeRequest) returns (.auth.v1.CompleteMFAChallengeResponse);
+  rpc UpdateMFAFactor(.auth.v1.UpdateMFAFactorRequest) returns (.auth.v1.UpdateMFAFactorResponse);
+  rpc DeleteMFAFactor(.auth.v1.DeleteMFAFactorRequest) returns (.auth.v1.DeleteMFAFactorResponse);
+  rpc RegenerateRecoveryCodes(.auth.v1.RegenerateRecoveryCodesRequest) returns (.auth.v1.RegenerateRecoveryCodesResponse);
+  rpc ClaimFreshStepUp(.auth.v1.ClaimFreshStepUpRequest) returns (.auth.v1.ClaimFreshStepUpResponse);
+  rpc ConsumeFreshStepUp(.auth.v1.ConsumeFreshStepUpRequest) returns (.auth.v1.ConsumeFreshStepUpResponse);
+  rpc ReleaseFreshStepUp(.auth.v1.ReleaseFreshStepUpRequest) returns (.auth.v1.ReleaseFreshStepUpResponse);
+}

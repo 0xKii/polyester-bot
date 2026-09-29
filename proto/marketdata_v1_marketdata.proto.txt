@@ -1,0 +1,159 @@
+// marketdata/v1/marketdata.proto  package=marketdata.v1
+enum SideFilter {
+  SIDE_UNSPECIFIED = 0;
+  BUY = 1;
+  SELL = 2;
+}
+enum Timeframe {
+  TIMEFRAME_UNSPECIFIED = 0;
+  SEC_1 = 1;
+  MIN_1 = 2;
+  MIN_5 = 3;
+  MIN_15 = 4;
+  MIN_30 = 5;
+  HOUR_1 = 6;
+  HOUR_4 = 7;
+  DAY_1 = 8;
+  HOUR_12 = 9;
+  WEEK_1 = 10;
+  MONTH_1 = 11;
+}
+enum PairStatus {
+  PAIR_STATUS_UNSPECIFIED = 0;
+  PAIR_STATUS_ENABLED = 1;
+  PAIR_STATUS_DISABLED = 2;
+  PAIR_STATUS_CANCEL_ONLY = 3;
+  PAIR_STATUS_POST_ONLY = 4;
+  PAIR_STATUS_REDUCE_ONLY = 5;
+}
+message GetTradesRequest {
+  optional 13 symbol_id = 1;
+  optional 13 limit = 2;
+  optional .google.protobuf.Timestamp start_time = 3;
+  optional .google.protobuf.Timestamp end_time = 4;
+  optional .marketdata.v1.SideFilter side = 5;
+  optional 9 page_token = 6;
+}
+message MarketTrade {
+  optional 13 symbol_id = 1;
+  optional 4 match_id = 2;
+  optional 8 is_buy = 3;
+  optional 3 price_ticks = 4;
+  optional 3 qty_scaled = 5;
+  optional 4 ts_ns = 6;
+}
+message GetTradesResponse {
+  repeated .marketdata.v1.MarketTrade trades = 1;
+  optional 9 next_page_token = 2;
+}
+message GetCandlesRequest {
+  optional 13 symbol_id = 1;
+  optional .marketdata.v1.Timeframe timeframe = 2;
+  optional 13 limit = 3;
+  optional .google.protobuf.Timestamp start_time = 4;
+  optional .google.protobuf.Timestamp end_time = 5;
+  optional 8 include_incomplete = 6;
+  optional 8 include_reference = 7;
+  optional 9 page_token = 8;
+}
+message GetCandlesColumnsRequest {
+  optional 13 symbol_id = 1;
+  optional .marketdata.v1.Timeframe timeframe = 2;
+  optional 13 limit = 3;
+  optional .google.protobuf.Timestamp start_time = 4;
+  optional .google.protobuf.Timestamp end_time = 5;
+  optional 8 include_incomplete = 6;
+  optional 8 include_reference = 7;
+  optional 9 page_token = 8;
+}
+message CandlePoint {
+  optional 4 ts_sec = 1;
+  optional 3 open = 2;
+  optional 3 high = 3;
+  optional 3 low = 4;
+  optional 3 close = 5;
+  optional 3 volume = 6;
+  optional 8 is_closed = 7;
+  optional 9 quote_volume = 8;
+}
+message GetCandlesResponse {
+  optional 13 symbol_id = 1;
+  optional .marketdata.v1.Timeframe timeframe = 2;
+  repeated .marketdata.v1.CandlePoint candles = 3;
+  repeated .marketdata.v1.CandlePoint reference_candles = 4;
+  optional 9 next_page_token = 5;
+}
+message GetCandlesColumnsResponse {
+  optional 13 symbol_id = 1;
+  optional .marketdata.v1.Timeframe timeframe = 2;
+  repeated 4 ts_sec = 3;
+  repeated 3 open = 4;
+  repeated 3 high = 5;
+  repeated 3 low = 6;
+  repeated 3 close = 7;
+  repeated 3 volume = 8;
+  repeated 4 reference_ts_sec = 9;
+  repeated 3 reference_open = 10;
+  repeated 3 reference_high = 11;
+  repeated 3 reference_low = 12;
+  repeated 3 reference_close = 13;
+  repeated 3 reference_volume = 14;
+  optional 9 next_page_token = 15;
+  repeated 9 quote_volume = 16;
+}
+message Candle {
+  optional 13 symbol_id = 1;
+  optional .marketdata.v1.Timeframe timeframe = 2;
+  optional 4 ts_sec = 3;
+  optional 3 open = 4;
+  optional 3 high = 5;
+  optional 3 low = 6;
+  optional 3 close = 7;
+  optional 3 volume = 8;
+  optional 9 quote_volume = 9;
+}
+message AssetConfig {
+  optional 9 asset = 1;
+  optional 13 ledger_id = 2;
+  optional 9 name = 3;
+  optional 13 quantity_display_decimals = 4;
+  optional 13 quantity_scale = 5;
+  optional 13 market_data_volume_scale = 6;
+}
+message PairMarketdataConfig {
+  repeated 1 orderbook_price_buckets = 1;
+}
+message PairConfig {
+  optional 13 symbol_id = 1;
+  optional 9 symbol = 2;
+  optional 9 base_asset = 3;
+  optional 9 quote_asset = 4;
+  optional 9 tick_size = 5;
+  optional 9 step_size = 6;
+  optional 9 min_notional_quote = 7;
+  optional 9 min_qty_base = 8;
+  optional 8 allow_buy_fee_from_base = 9;
+  optional 13 base_quantity_scale = 10;
+  optional 13 quote_quantity_scale = 11;
+  optional .marketdata.v1.PairMarketdataConfig marketdata = 12;
+  optional .google.protobuf.Timestamp listing_at = 13;
+  optional .google.protobuf.Timestamp delisting_at = 14;
+  optional .marketdata.v1.PairStatus status = 15;
+  optional 5 default_market_slippage_bps_buy = 16;
+  optional 5 default_market_slippage_bps_sell = 17;
+  optional 5 max_client_ref_drift_bps = 18;
+  optional 13 reference_price_scale = 19;
+}
+message GetSpotConfigRequest {
+}
+message GetSpotConfigResponse {
+  repeated .marketdata.v1.AssetConfig assets = 1;
+  repeated .marketdata.v1.PairConfig pairs = 2;
+  optional 4 ts_sec = 3;
+}
+service MarketDataService {
+  rpc GetTrades(.marketdata.v1.GetTradesRequest) returns (.marketdata.v1.GetTradesResponse);
+  rpc GetCandles(.marketdata.v1.GetCandlesRequest) returns (.marketdata.v1.GetCandlesResponse);
+  rpc GetCandlesColumns(.marketdata.v1.GetCandlesColumnsRequest) returns (.marketdata.v1.GetCandlesColumnsResponse);
+  rpc GetSpotConfig(.marketdata.v1.GetSpotConfigRequest) returns (.marketdata.v1.GetSpotConfigResponse);
+}

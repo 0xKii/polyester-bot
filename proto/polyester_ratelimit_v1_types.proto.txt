@@ -1,0 +1,51 @@
+// polyester/ratelimit/v1/types.proto  package=polyester.ratelimit.v1
+enum FailureReason {
+  REASON_UNSPECIFIED = 0;
+  QUOTA_EXCEEDED = 1;
+  AUTHORITY_UNAVAILABLE = 2;
+}
+enum PolicyClass {
+  CLASS_UNSPECIFIED = 0;
+  AUTH_PUBLIC = 1;
+  TRADING_PLACE = 2;
+  TRADING_CANCEL = 3;
+  TRADING_READ = 4;
+  ACCOUNT_ADMIN = 5;
+  PUBLIC_READ = 6;
+  ACCOUNT_SECURITY = 7;
+  DEPOSIT_CREATE = 8;
+  INTERNAL_TRANSFER = 9;
+  WITHDRAW_SUBMIT = 10;
+  WITHDRAW_VALIDATE = 11;
+  GUARD_SIGN = 12;
+  SOCIAL_PROVIDER = 13;
+}
+enum LimiterScope {
+  SCOPE_UNSPECIFIED = 0;
+  CLIENT_IP = 1;
+  API_KEY = 2;
+  ACCOUNT = 3;
+  SUBACCOUNT = 4;
+  CONNECTION = 5;
+  SERVICE = 6;
+  REGION = 7;
+  SYMBOL = 8;
+  AUTH_SUBJECT = 9;
+}
+enum RefillModel {
+  REFILL_UNSPECIFIED = 0;
+  CONTINUOUS = 1;
+  FIXED_WINDOW = 2;
+  ROLLING_WINDOW = 3;
+}
+message RateLimitDetail {
+  optional .polyester.ratelimit.v1.FailureReason reason = 1;
+  optional 4 limit = 2;
+  optional 4 remaining = 3;
+  optional 4 retry_after_ms = 4;
+  optional 4 policy_version = 5;
+  optional 9 operation_id = 6;
+  optional .polyester.ratelimit.v1.PolicyClass policy_class = 7;
+  optional .polyester.ratelimit.v1.LimiterScope scope = 8;
+  optional .polyester.ratelimit.v1.RefillModel refill_model = 9;
+}

@@ -1,0 +1,62 @@
+// chain/lifecycle/v1/types.proto  package=chain.lifecycle.v1
+enum RequestFeeStatus {
+  REQUEST_FEE_STATUS_UNSPECIFIED = 0;
+  REQUEST_FEE_STATUS_LOCKED = 1;
+  REQUEST_FEE_STATUS_SETTLED = 2;
+}
+enum LifecycleReason {
+  REASON_UNSPECIFIED = 0;
+  ZIPPER_VALIDATION_REJECTED = 101;
+  ZIPPER_EXECUTION_REJECTED = 102;
+  ZIPPER_WITHDRAW_EXECUTION_FAILED = 103;
+  ZIPPER_DEPOSIT_REFUND_FAILED = 104;
+  LEDGER_MIRROR_REJECTED = 200;
+  LEDGER_MIRROR_TRANSFER_EXCEEDS_CREDITS = 201;
+  LEDGER_MIRROR_TRANSFER_EXISTS = 202;
+  LEDGER_MIRROR_PENDING_TRANSFER_NOT_FOUND = 203;
+  LEDGER_MIRROR_TRANSFER_ID_ALREADY_FAILED = 204;
+  TRADING_WITHDRAW_POLICY_DENIED = 300;
+  TRADING_WITHDRAW_CONTRACT_REVERTED = 301;
+  TRADING_WITHDRAW_EXECUTION_FAILED = 302;
+}
+enum FlowKind {
+  KIND_UNSPECIFIED = 0;
+  KIND_DEPOSIT = 1;
+  KIND_WITHDRAW = 2;
+  KIND_TRANSFER = 3;
+}
+enum FlowDomain {
+  DOMAIN_UNSPECIFIED = 0;
+  DOMAIN_EXTERNAL_CHAIN = 1;
+  DOMAIN_ZIPPER = 2;
+  DOMAIN_FUNDING = 3;
+  DOMAIN_TRADING = 4;
+  DOMAIN_LENDING = 5;
+}
+enum LifecycleSource {
+  SOURCE_UNSPECIFIED = 0;
+  SOURCE_RELAYER = 1;
+  SOURCE_POLYESTER_CHAIN = 2;
+  SOURCE_EXECUTOR = 3;
+  SOURCE_LEDGER = 4;
+}
+enum FlowState {
+  STATE_UNSPECIFIED = 0;
+  STATE_PENDING_SOURCE = 1;
+  STATE_PENDING_POLYESTER_CHAIN = 2;
+  STATE_PENDING_LEDGER = 3;
+  STATE_COMPLETED = 4;
+  STATE_FAILED = 5;
+  STATE_DROPPED = 6;
+  STATE_REFUNDED = 7;
+}
+message AssetIds {
+  optional 13 zipped_asset_id = 1;
+  optional 13 unified_asset_id = 3;
+}
+message RequestFee {
+  optional .chain.lifecycle.v1.AssetIds asset_ids = 1;
+  optional .polyester.type.v1.U128 amount_e18 = 2;
+  optional 9 recipient_address = 3;
+  optional .chain.lifecycle.v1.RequestFeeStatus status = 4;
+}

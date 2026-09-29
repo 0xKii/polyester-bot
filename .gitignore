@@ -1,0 +1,15 @@
+# --- secrets ---
+.env
+
+# --- captured artifacts / runtime state ---
+recon/
+*.log
+
+# --- browser profiles (session cookies live here) ---
+profile/
+profile2/
+
+# --- python ---
+__pycache__/
+*.py[cod]
+.venv/

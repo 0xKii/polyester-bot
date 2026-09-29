@@ -1,0 +1,125 @@
+// marketoverview/v1/marketoverview.proto  package=marketoverview.v1
+enum SparklineInterval {
+  SPARKLINE_INTERVAL_UNSPECIFIED = 0;
+  SPARKLINE_1H = 1;
+  SPARKLINE_24H = 2;
+  SPARKLINE_1W = 3;
+  SPARKLINE_1M = 4;
+}
+enum MarketOrderBy {
+  MARKET_ORDER_BY_UNSPECIFIED = 0;
+  ORDER_BY_CHANGE_24H_BPS = 1;
+  ORDER_BY_VOLUME_24H_USD = 2;
+  ORDER_BY_LAST_PRICE = 3;
+  ORDER_BY_DATE_ADDED = 4;
+}
+enum SortDirection {
+  SORT_DIRECTION_UNSPECIFIED = 0;
+  SORT_ASC = 1;
+  SORT_DESC = 2;
+}
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  ERROR_CODE_BAD_REQUEST = 1;
+  ERROR_CODE_INVALID_ARGUMENT = 2;
+  ERROR_CODE_NOT_FOUND = 3;
+  ERROR_CODE_UNAVAILABLE = 4;
+  ERROR_CODE_UPSTREAM_ERROR = 5;
+}
+message ErrorDetail {
+  optional .marketoverview.v1.ErrorCode code = 1;
+}
+message Sparkline {
+  optional .marketoverview.v1.SparklineInterval interval = 1;
+  repeated 3 close_ticks = 2;
+}
+message MarketOverview {
+  optional 13 symbol_id = 1;
+  optional 3 last_price_ticks = 3;
+  optional 4 last_trade_ts_ns = 4;
+  optional 5 change_24h_bps = 5;
+  optional 3 high_24h_ticks = 6;
+  optional 3 low_24h_ticks = 7;
+  optional 3 volume_24h_base_scaled = 8;
+  optional 3 volume_24h_quote_scaled = 14;
+  optional 3 volume_24h_usd_scaled = 17;
+  optional 4 listed_ts_ns = 15;
+  optional 3 best_bid_ticks = 9;
+  optional 3 best_bid_qty_scaled = 10;
+  optional 3 best_ask_ticks = 11;
+  optional 3 best_ask_qty_scaled = 12;
+  repeated .marketoverview.v1.Sparkline sparklines = 13;
+  optional 3 index_price_ticks = 16;
+}
+message ListMarketOverviewRequest {
+  repeated 13 symbol_id = 1;
+  optional 13 limit = 2;
+  optional 9 page_token = 3;
+  optional .marketoverview.v1.MarketOrderBy order_by = 4;
+  optional .marketoverview.v1.SortDirection sort = 5;
+  optional 8 include_sparklines = 6;
+  repeated .marketoverview.v1.SparklineInterval sparkline_intervals = 7;
+}
+message ListMarketOverviewResponse {
+  repeated .marketoverview.v1.MarketOverview markets = 1;
+  optional 9 next_page_token = 2;
+}
+message MarketOverviewBatch {
+  repeated .marketoverview.v1.MarketOverview markets = 1;
+  optional 4 ts_ns = 2;
+}
+message GetSpotVolumeHistoryRequest {
+  repeated 13 symbol_id = 1;
+}
+message SpotPairVolumeSeries {
+  optional 13 symbol_id = 1;
+  repeated 18 volume_usd_scaled = 2;
+}
+message GetSpotVolumeHistoryResponse {
+  optional 9 bucket = 1;
+  optional 7 start_ts_sec = 2;
+  optional 7 end_ts_sec = 3;
+  optional 13 points = 4;
+  repeated .marketoverview.v1.SpotPairVolumeSeries pairs = 5;
+  repeated 18 total_volume_usd_scaled = 6;
+}
+message CurrencyMetadata {
+  optional 9 code = 1;
+  optional 9 default_english_name = 2;
+  optional 9 symbol = 3;
+  optional 13 fraction_digits = 4;
+}
+message GetCurrencyConversionConfigRequest {
+}
+message GetCurrencyConversionConfigResponse {
+  repeated .marketoverview.v1.CurrencyMetadata fiat = 1;
+  repeated .marketoverview.v1.CurrencyMetadata stablecoins = 2;
+}
+message FiatConversionRate {
+  optional 9 code = 1;
+  optional 3 units_per_usd_e8 = 2;
+}
+message FiatConversionSnapshot {
+  repeated .marketoverview.v1.FiatConversionRate rates = 1;
+  optional 4 source_ts_sec = 2;
+  optional 8 stale = 3;
+}
+message StablecoinConversionRate {
+  optional 9 code = 1;
+  optional 3 usd_per_unit_e8 = 2;
+  optional 4 source_ts_sec = 3;
+  optional 8 stale = 4;
+}
+message GetCurrencyConversionRatesRequest {
+}
+message GetCurrencyConversionRatesResponse {
+  optional .marketoverview.v1.FiatConversionSnapshot fiat = 1;
+  repeated .marketoverview.v1.StablecoinConversionRate stablecoins = 2;
+  optional 4 snapshot_ts_sec = 3;
+}
+service MarketOverviewService {
+  rpc GetCurrencyConversionConfig(.marketoverview.v1.GetCurrencyConversionConfigRequest) returns (.marketoverview.v1.GetCurrencyConversionConfigResponse);
+  rpc GetCurrencyConversionRates(.marketoverview.v1.GetCurrencyConversionRatesRequest) returns (.marketoverview.v1.GetCurrencyConversionRatesResponse);
+  rpc GetSpotVolumeHistory(.marketoverview.v1.GetSpotVolumeHistoryRequest) returns (.marketoverview.v1.GetSpotVolumeHistoryResponse);
+  rpc ListMarketOverview(.marketoverview.v1.ListMarketOverviewRequest) returns (.marketoverview.v1.ListMarketOverviewResponse);
+}

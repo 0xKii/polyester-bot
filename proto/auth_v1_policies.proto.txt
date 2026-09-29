@@ -1,0 +1,167 @@
+// auth/v1/policies.proto  package=auth.v1
+enum PolicyAction {
+  UNSPECIFIED = 0;
+  TRADE_SPOT = 1;
+  INTERNAL_TRANSFER = 3;
+  EXTERNAL_WITHDRAW = 4;
+  READ_BALANCES = 5;
+  READ_SPOT = 6;
+  READ_INTERNAL_TRANSFERS = 8;
+  READ_ADDRESS_BOOK = 11;
+  MANAGE_ADDRESS_BOOK = 12;
+}
+message MarketScope {
+}
+message SpotMarketSelector {
+  optional 13 symbol_id = 1;
+}
+message SpotMarketRule {
+  optional 13 symbol_id = 1;
+}
+message SubaccountPolicyView {
+  optional 6 id = 1;
+  optional 9 name = 2;
+  optional 9 description = 3;
+  repeated .auth.v1.SpotMarketRule spot_markets = 4;
+  optional .auth.v1.MarketScope.Value spot_market_scope = 6;
+  repeated .auth.v1.PolicyAction actions = 8;
+  optional 8 is_template = 10;
+  optional 6 source_template_id = 11;
+  optional 4 max_order_notional = 13;
+  optional 13 max_open_orders = 14;
+  optional 8 trading_halted = 23;
+  optional 8 locked = 27;
+  optional .google.protobuf.Timestamp review_at = 28;
+  optional .google.protobuf.Timestamp expires_at = 29;
+  optional .google.protobuf.Timestamp created_at = 20;
+  optional .google.protobuf.Timestamp updated_at = 21;
+  optional 4 revision = 30;
+}
+message ListSubaccountPoliciesRequest {
+  optional 6 subaccount_id = 1;
+}
+message ListSubaccountPoliciesResponse {
+  repeated .auth.v1.SubaccountPolicyView policies = 1;
+}
+message GetSubaccountPolicyRequest {
+  optional 6 policy_id = 1;
+  optional 6 subaccount_id = 2;
+}
+message GetSubaccountPolicyResponse {
+  optional .auth.v1.SubaccountPolicyView policy = 1;
+}
+message SubaccountPolicySpec {
+  optional 9 name = 1;
+  optional 9 description = 2;
+  repeated .auth.v1.SpotMarketSelector spot_markets = 3;
+  optional .auth.v1.MarketScope.Value spot_market_scope = 5;
+  repeated .auth.v1.PolicyAction actions = 7;
+  optional 4 max_order_notional = 13;
+  optional 13 max_open_orders = 14;
+  optional 8 trading_halted = 21;
+  optional 8 locked = 25;
+  optional .google.protobuf.Timestamp review_at = 26;
+  optional .google.protobuf.Timestamp expires_at = 27;
+}
+message CreateSubaccountPolicyRequest {
+  optional .auth.v1.SubaccountPolicySpec policy = 1;
+  optional 6 subaccount_id = 2;
+}
+message CreateSubaccountPolicyResponse {
+  optional .auth.v1.SubaccountPolicyView policy = 1;
+}
+message UpdateSubaccountPolicyRequest {
+  optional 6 policy_id = 1;
+  optional .auth.v1.SubaccountPolicySpec policy = 2;
+  optional .google.protobuf.FieldMask update_mask = 3;
+  optional 4 expected_revision = 4;
+}
+message UpdateSubaccountPolicyResponse {
+  optional .auth.v1.SubaccountPolicyView policy = 1;
+}
+message DeleteSubaccountPolicyRequest {
+  optional 6 policy_id = 1;
+}
+message DeleteSubaccountPolicyResponse {
+}
+message SetSubaccountPolicyRequest {
+  optional 6 subaccount_id = 1;
+  optional 6 policy_id = 2;
+}
+message SetSubaccountPolicyResponse {
+}
+message ApiPolicyView {
+  optional 6 id = 1;
+  optional 9 name = 2;
+  optional 9 description = 3;
+  repeated .auth.v1.SpotMarketRule spot_markets = 4;
+  repeated .auth.v1.PolicyAction actions = 6;
+  optional .auth.v1.MarketScope.Value spot_market_scope = 7;
+  optional 8 is_template = 19;
+  optional 6 source_template_id = 20;
+  optional .google.protobuf.Timestamp created_at = 21;
+  optional .google.protobuf.Timestamp updated_at = 22;
+  optional 4 revision = 23;
+}
+message ListApiPoliciesRequest {
+  optional 9 key_id = 1;
+}
+message ListApiPoliciesResponse {
+  repeated .auth.v1.ApiPolicyView policies = 1;
+}
+message GetApiPolicyRequest {
+  optional 6 policy_id = 1;
+  optional 9 key_id = 2;
+}
+message GetApiPolicyResponse {
+  optional .auth.v1.ApiPolicyView policy = 1;
+}
+message ApiPolicySpec {
+  optional 9 name = 1;
+  optional 9 description = 2;
+  repeated .auth.v1.SpotMarketSelector spot_markets = 3;
+  optional .auth.v1.MarketScope.Value spot_market_scope = 5;
+  repeated .auth.v1.PolicyAction actions = 7;
+  optional 8 is_template = 19;
+}
+message CreateApiPolicyRequest {
+  optional .auth.v1.ApiPolicySpec policy = 1;
+  optional 9 assign_to_key_id = 2;
+}
+message CreateApiPolicyResponse {
+  optional .auth.v1.ApiPolicyView policy = 1;
+}
+message UpdateApiPolicyRequest {
+  optional 6 policy_id = 1;
+  optional .auth.v1.ApiPolicySpec policy = 2;
+  optional .google.protobuf.FieldMask update_mask = 3;
+  optional 4 expected_revision = 4;
+}
+message UpdateApiPolicyResponse {
+  optional .auth.v1.ApiPolicyView policy = 1;
+}
+message DeleteApiPolicyRequest {
+  optional 6 policy_id = 1;
+}
+message DeleteApiPolicyResponse {
+}
+message SetApiKeyPolicyRequest {
+  optional 9 key_id = 1;
+  optional 6 policy_id = 2;
+}
+message SetApiKeyPolicyResponse {
+}
+service PolicyService {
+  rpc ListSubaccountPolicies(.auth.v1.ListSubaccountPoliciesRequest) returns (.auth.v1.ListSubaccountPoliciesResponse);
+  rpc GetSubaccountPolicy(.auth.v1.GetSubaccountPolicyRequest) returns (.auth.v1.GetSubaccountPolicyResponse);
+  rpc CreateSubaccountPolicy(.auth.v1.CreateSubaccountPolicyRequest) returns (.auth.v1.CreateSubaccountPolicyResponse);
+  rpc UpdateSubaccountPolicy(.auth.v1.UpdateSubaccountPolicyRequest) returns (.auth.v1.UpdateSubaccountPolicyResponse);
+  rpc DeleteSubaccountPolicy(.auth.v1.DeleteSubaccountPolicyRequest) returns (.auth.v1.DeleteSubaccountPolicyResponse);
+  rpc SetSubaccountPolicy(.auth.v1.SetSubaccountPolicyRequest) returns (.auth.v1.SetSubaccountPolicyResponse);
+  rpc ListApiPolicies(.auth.v1.ListApiPoliciesRequest) returns (.auth.v1.ListApiPoliciesResponse);
+  rpc GetApiPolicy(.auth.v1.GetApiPolicyRequest) returns (.auth.v1.GetApiPolicyResponse);
+  rpc CreateApiPolicy(.auth.v1.CreateApiPolicyRequest) returns (.auth.v1.CreateApiPolicyResponse);
+  rpc UpdateApiPolicy(.auth.v1.UpdateApiPolicyRequest) returns (.auth.v1.UpdateApiPolicyResponse);
+  rpc DeleteApiPolicy(.auth.v1.DeleteApiPolicyRequest) returns (.auth.v1.DeleteApiPolicyResponse);
+  rpc SetApiKeyPolicy(.auth.v1.SetApiKeyPolicyRequest) returns (.auth.v1.SetApiKeyPolicyResponse);
+}

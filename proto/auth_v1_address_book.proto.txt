@@ -1,0 +1,342 @@
+// auth/v1/address_book.proto  package=auth.v1
+enum AccountScopeType {
+  SCOPE_UNSPECIFIED = 0;
+  SCOPE_ROOT = 1;
+  SCOPE_SUBACCOUNT = 2;
+}
+enum AddressBookEntryKind {
+  ENTRY_KIND_UNSPECIFIED = 0;
+  EXTERNAL_CHAIN = 1;
+  INTERNAL_ACCOUNT = 2;
+}
+enum InternalWhitelistResolutionStatus {
+  INTERNAL_WHITELIST_RESOLUTION_UNSPECIFIED = 0;
+  INTERNAL_WHITELIST_RESOLVED = 1;
+  INTERNAL_WHITELIST_UNRESOLVED = 2;
+}
+enum DestinationWhitelistStatus {
+  DESTINATION_WHITELIST_STATUS_UNSPECIFIED = 0;
+  DESTINATION_NOT_WHITELISTED = 1;
+  DESTINATION_WHITELIST_ACTIVE = 2;
+  DESTINATION_WHITELIST_UNRESOLVED = 3;
+}
+enum TransferCounterpartyDirection {
+  TRANSFER_COUNTERPARTY_DIRECTION_UNSPECIFIED = 0;
+  DEPOSIT_FROM = 1;
+  WITHDRAW_TO = 2;
+  INTERNAL_TRANSFER_FROM = 3;
+  INTERNAL_TRANSFER_TO = 4;
+}
+message AccountScopeRef {
+  optional .auth.v1.AccountScopeType scope_type = 1;
+  optional 6 root_account_id = 2;
+  optional 6 subaccount_id = 3;
+}
+message AddressBook {
+  optional .auth.v1.AccountScopeRef scope = 1;
+  optional .auth.v1.SubaccountRole caller_role = 2;
+  optional 9 label = 3;
+  optional 9 owner_username = 4;
+  optional 9 smart_account_address = 5;
+}
+message ExternalWithdrawAddress {
+  optional 13 polychain_chain_id = 1;
+  optional 9 address = 2;
+}
+message InternalTransferAccount {
+  optional 6 root_account_id = 1;
+  optional 6 target_account_id = 2;
+  optional .auth.v1.AccountScopeType target_scope_type = 3;
+  optional 9 smart_account_address = 4;
+  optional 9 root_username = 5;
+  optional 9 subaccount_label = 6;
+}
+message AddressBookTag {
+  optional 6 tag_id = 1;
+  optional .auth.v1.AccountScopeRef scope = 2;
+  optional 9 name = 3;
+  optional 9 color = 4;
+  optional .google.protobuf.Timestamp created_at = 5;
+  optional .google.protobuf.Timestamp updated_at = 6;
+}
+message AddressBookTagSummary {
+  optional 6 tag_id = 1;
+  optional 9 name = 2;
+  optional 9 color = 3;
+}
+message AddressBookEntry {
+  optional 6 address_book_entry_id = 1;
+  optional .auth.v1.AccountScopeRef scope = 2;
+  optional .auth.v1.AddressBookEntryKind kind = 3;
+  optional 9 label = 4;
+  optional 9 note = 5;
+  optional .google.protobuf.Timestamp created_at = 6;
+  optional .google.protobuf.Timestamp updated_at = 7;
+  optional .auth.v1.ExternalWithdrawAddress external = 20;
+  optional .auth.v1.InternalTransferAccount internal = 21;
+  repeated .auth.v1.AddressBookTag tags = 30;
+  optional 4 revision = 31;
+}
+message AddressBookEntriesView {
+  repeated .auth.v1.ExternalAddressBookEntry external = 1;
+  repeated .auth.v1.InternalAddressBookEntry internal = 2;
+}
+message ExternalAddressBookEntry {
+  optional 6 address_book_entry_id = 1;
+  optional .auth.v1.AccountScopeRef scope = 2;
+  optional 9 label = 3;
+  optional 9 note = 4;
+  repeated 6 tag_ids = 5;
+  optional .auth.v1.DestinationWhitelistStatus whitelist_status = 6;
+  optional 13 polychain_chain_id = 7;
+  optional 9 address = 8;
+  optional .google.protobuf.Timestamp created_at = 9;
+  optional .google.protobuf.Timestamp updated_at = 10;
+  optional 4 revision = 11;
+}
+message InternalAddressBookEntry {
+  optional 6 address_book_entry_id = 1;
+  optional .auth.v1.AccountScopeRef scope = 2;
+  optional 9 label = 3;
+  optional 9 note = 4;
+  repeated 6 tag_ids = 5;
+  optional .auth.v1.DestinationWhitelistStatus whitelist_status = 6;
+  optional 6 root_account_id = 7;
+  optional 6 target_account_id = 8;
+  optional .auth.v1.AccountScopeType target_scope_type = 9;
+  optional 9 smart_account_address = 10;
+  optional 9 root_username = 11;
+  optional 9 subaccount_label = 12;
+  optional .google.protobuf.Timestamp created_at = 13;
+  optional .google.protobuf.Timestamp updated_at = 14;
+  optional 4 revision = 15;
+}
+message TransferCounterparty {
+  optional 6 counterparty_id = 1;
+  optional .auth.v1.AccountScopeRef scope = 2;
+  optional .auth.v1.TransferCounterpartyDirection direction = 3;
+  optional .auth.v1.AddressBookEntryKind kind = 4;
+  optional 8 saved = 5;
+  optional 6 address_book_entry_id = 6;
+  optional 4 use_count = 7;
+  optional .google.protobuf.Timestamp first_seen_at = 8;
+  optional .google.protobuf.Timestamp last_seen_at = 9;
+  optional .auth.v1.ExternalWithdrawAddress external = 20;
+  optional .auth.v1.InternalTransferAccount internal = 21;
+}
+message AddressBookRecentDestinationsView {
+  repeated .auth.v1.ExternalRecentDestination external = 1;
+  repeated .auth.v1.InternalRecentDestination internal = 2;
+}
+message ExternalRecentDestination {
+  optional .auth.v1.AccountScopeRef scope = 1;
+  optional .auth.v1.TransferCounterpartyDirection last_direction = 2;
+  optional 8 saved = 3;
+  optional 6 address_book_entry_id = 4;
+  optional 4 use_count = 5;
+  optional .google.protobuf.Timestamp last_seen_at = 6;
+  optional 13 polychain_chain_id = 7;
+  optional 9 address = 8;
+}
+message InternalRecentDestination {
+  optional .auth.v1.AccountScopeRef scope = 1;
+  optional .auth.v1.TransferCounterpartyDirection last_direction = 2;
+  optional 8 saved = 3;
+  optional 6 address_book_entry_id = 4;
+  optional 4 use_count = 5;
+  optional .google.protobuf.Timestamp last_seen_at = 6;
+  optional 6 root_account_id = 7;
+  optional 6 target_account_id = 8;
+  optional .auth.v1.AccountScopeType target_scope_type = 9;
+  optional 9 smart_account_address = 10;
+  optional 9 root_username = 11;
+  optional 9 subaccount_label = 12;
+}
+message InternalTransferWhitelistEntry {
+  optional 6 entry_id = 1;
+  optional .auth.v1.AccountScopeRef scope = 2;
+  optional 6 root_account_id = 3;
+  optional 6 target_account_id = 4;
+  optional .auth.v1.AccountScopeType target_scope_type = 5;
+  optional 9 smart_account_address = 6;
+  optional 9 root_username = 7;
+  optional 9 subaccount_label = 8;
+  optional .google.protobuf.Timestamp created_at = 9;
+  optional .google.protobuf.Timestamp updated_at = 10;
+  optional .auth.v1.InternalWhitelistResolutionStatus resolution_status = 11;
+}
+message MirroredWithdrawWhitelistEntry {
+  optional 9 canonical_address = 1;
+  optional 9 raw_address_hex = 2;
+  optional .google.protobuf.Timestamp updated_at = 5;
+  optional 13 polychain_chain_id = 6;
+}
+message WithdrawWhitelistView {
+  optional .auth.v1.AccountScopeRef scope = 1;
+  optional 8 external_whitelist_required = 2;
+  repeated .auth.v1.MirroredWithdrawWhitelistEntry active_entries = 3;
+  optional 8 internal_whitelist_required = 4;
+}
+message TransferDestination {
+  optional .auth.v1.AccountScopeRef scope = 1;
+  optional .auth.v1.AddressBookEntryKind kind = 2;
+  optional 8 saved = 3;
+  optional 8 whitelisted = 4;
+  optional .auth.v1.DestinationWhitelistStatus whitelist_status = 5;
+  optional .auth.v1.AddressBookEntry address_book_entry = 6;
+  optional .auth.v1.ExternalWithdrawAddress external = 20;
+  optional .auth.v1.InternalTransferAccount internal = 21;
+  optional .google.protobuf.Timestamp whitelist_updated_at = 31;
+}
+message ListAddressBooksRequest {
+}
+message ListAddressBooksResponse {
+  repeated .auth.v1.AddressBook books = 1;
+}
+message ListAddressBookEntriesRequest {
+  optional 6 subaccount_id = 1;
+  optional .auth.v1.AddressBookEntryKind kind = 2;
+  optional 13 limit = 3;
+  optional 9 page_token = 4;
+}
+message ListAddressBookEntriesResponse {
+  repeated .auth.v1.AddressBookEntry entries = 1;
+  optional 9 next_page_token = 2;
+}
+message CreateAddressBookEntryRequest {
+  optional 6 subaccount_id = 1;
+  optional 9 label = 2;
+  optional 9 note = 3;
+  optional .auth.v1.ExternalWithdrawAddress external = 10;
+  optional .auth.v1.RequestedInternalTransferAccount internal = 11;
+  repeated 6 tag_ids = 4;
+  repeated .auth.v1.AddressBookTagInput new_tags = 5;
+}
+message RequestedInternalTransferAccount {
+  optional 9 smart_account_address = 1;
+}
+message CreateAddressBookEntryResponse {
+  optional .auth.v1.AddressBookEntry entry = 1;
+}
+message AddressBookEntryUpdateSpec {
+  optional 9 label = 1;
+  optional 9 note = 2;
+  repeated 6 tag_ids = 3;
+  repeated .auth.v1.AddressBookTagInput new_tags = 4;
+}
+message UpdateAddressBookEntryRequest {
+  optional 6 address_book_entry_id = 1;
+  optional .auth.v1.AddressBookEntryUpdateSpec entry = 2;
+  optional .google.protobuf.FieldMask update_mask = 3;
+  optional 4 expected_revision = 4;
+}
+message UpdateAddressBookEntryResponse {
+  optional .auth.v1.AddressBookEntry entry = 1;
+}
+message AddressBookTagInput {
+  optional 9 name = 1;
+  optional 9 color = 2;
+}
+message DeleteAddressBookEntryRequest {
+  optional 6 address_book_entry_id = 1;
+}
+message DeleteAddressBookEntryResponse {
+}
+message CopyAddressBookEntryRequest {
+  optional 6 address_book_entry_id = 1;
+  optional 6 target_subaccount_id = 2;
+}
+message CopyAddressBookEntryResponse {
+  optional .auth.v1.AddressBookEntry entry = 1;
+}
+message CreateAddressBookTagRequest {
+  optional 6 subaccount_id = 1;
+  optional 9 name = 2;
+  optional 9 color = 3;
+}
+message CreateAddressBookTagResponse {
+  optional .auth.v1.AddressBookTag tag = 1;
+}
+message UpdateAddressBookTagRequest {
+  optional 6 tag_id = 1;
+  optional 9 name = 2;
+  optional 9 color = 3;
+}
+message UpdateAddressBookTagResponse {
+  optional .auth.v1.AddressBookTag tag = 1;
+}
+message DeleteAddressBookTagRequest {
+  optional 6 tag_id = 1;
+}
+message DeleteAddressBookTagResponse {
+}
+message ListTransferCounterpartiesRequest {
+  optional 6 subaccount_id = 1;
+  optional .auth.v1.TransferCounterpartyDirection direction = 2;
+  optional .auth.v1.AddressBookEntryKind kind = 3;
+  optional 13 limit = 5;
+}
+message ListTransferCounterpartiesResponse {
+  repeated .auth.v1.TransferCounterparty counterparties = 1;
+  optional 8 truncated = 2;
+}
+message ListTransferDestinationsRequest {
+  optional 6 subaccount_id = 1;
+  optional .auth.v1.AddressBookEntryKind kind = 2;
+  optional 13 limit = 3;
+  optional 9 page_token = 4;
+}
+message ListTransferDestinationsResponse {
+  repeated .auth.v1.TransferDestination destinations = 1;
+  optional 9 next_page_token = 2;
+}
+message ListInternalTransferWhitelistEntriesRequest {
+  optional 6 subaccount_id = 1;
+  optional 13 limit = 2;
+  optional 9 page_token = 3;
+}
+message ListInternalTransferWhitelistEntriesResponse {
+  repeated .auth.v1.InternalTransferWhitelistEntry entries = 1;
+  optional 9 next_page_token = 2;
+}
+message GetWithdrawWhitelistViewRequest {
+  optional 6 subaccount_id = 1;
+}
+message GetWithdrawWhitelistViewResponse {
+  optional .auth.v1.WithdrawWhitelistView view = 1;
+}
+message GetAddressBookViewRequest {
+  optional 6 subaccount_id = 1;
+  optional 13 limit = 6;
+  optional 4 minimum_view_revision = 7;
+}
+message GetAddressBookViewResponse {
+  repeated .auth.v1.AddressBook books = 1;
+  optional .auth.v1.AddressBookEntriesView entries = 2;
+  optional .auth.v1.AddressBookRecentDestinationsView recent_destinations = 3;
+  repeated .auth.v1.AddressBookTagSummary tags = 4;
+  optional .auth.v1.WithdrawWhitelistView withdraw_whitelist = 5;
+  optional 8 recent_destinations_truncated = 6;
+  optional 4 view_revision = 7;
+}
+message AddressBookViewInvalidated {
+  optional .auth.v1.AccountScopeRef scope = 1;
+  optional .google.protobuf.Timestamp invalidated_at = 2;
+  optional 4 view_revision = 3;
+}
+service AddressBookService {
+  rpc ListAddressBooks(.auth.v1.ListAddressBooksRequest) returns (.auth.v1.ListAddressBooksResponse);
+  rpc ListAddressBookEntries(.auth.v1.ListAddressBookEntriesRequest) returns (.auth.v1.ListAddressBookEntriesResponse);
+  rpc CreateAddressBookEntry(.auth.v1.CreateAddressBookEntryRequest) returns (.auth.v1.CreateAddressBookEntryResponse);
+  rpc UpdateAddressBookEntry(.auth.v1.UpdateAddressBookEntryRequest) returns (.auth.v1.UpdateAddressBookEntryResponse);
+  rpc DeleteAddressBookEntry(.auth.v1.DeleteAddressBookEntryRequest) returns (.auth.v1.DeleteAddressBookEntryResponse);
+  rpc CopyAddressBookEntry(.auth.v1.CopyAddressBookEntryRequest) returns (.auth.v1.CopyAddressBookEntryResponse);
+  rpc CreateAddressBookTag(.auth.v1.CreateAddressBookTagRequest) returns (.auth.v1.CreateAddressBookTagResponse);
+  rpc UpdateAddressBookTag(.auth.v1.UpdateAddressBookTagRequest) returns (.auth.v1.UpdateAddressBookTagResponse);
+  rpc DeleteAddressBookTag(.auth.v1.DeleteAddressBookTagRequest) returns (.auth.v1.DeleteAddressBookTagResponse);
+  rpc ListTransferCounterparties(.auth.v1.ListTransferCounterpartiesRequest) returns (.auth.v1.ListTransferCounterpartiesResponse);
+  rpc ListTransferDestinations(.auth.v1.ListTransferDestinationsRequest) returns (.auth.v1.ListTransferDestinationsResponse);
+  rpc ListInternalTransferWhitelistEntries(.auth.v1.ListInternalTransferWhitelistEntriesRequest) returns (.auth.v1.ListInternalTransferWhitelistEntriesResponse);
+  rpc GetWithdrawWhitelistView(.auth.v1.GetWithdrawWhitelistViewRequest) returns (.auth.v1.GetWithdrawWhitelistViewResponse);
+  rpc GetAddressBookView(.auth.v1.GetAddressBookViewRequest) returns (.auth.v1.GetAddressBookViewResponse);
+}

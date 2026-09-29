@@ -1,0 +1,17 @@
+// fees/v1/fees.proto  package=fees.v1
+message SpotFeeRate {
+  optional 13 symbol_id = 1;
+  optional 9 maker_fee_rate_percent = 3;
+  optional 9 taker_fee_rate_percent = 4;
+  optional 13 vip_tier = 5;
+}
+message GetSpotFeeRatesRequest {
+  optional 6 subaccount_id = 1;
+  repeated 13 symbol_id = 2;
+}
+message GetSpotFeeRatesResponse {
+  repeated .fees.v1.SpotFeeRate fee_rates = 1;
+}
+service FeeService {
+  rpc GetSpotFeeRates(.fees.v1.GetSpotFeeRatesRequest) returns (.fees.v1.GetSpotFeeRatesResponse);
+}

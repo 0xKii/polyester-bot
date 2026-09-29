@@ -1,0 +1,25 @@
+// auth/v1/resolve.proto  package=auth.v1
+enum ResolveHint {
+  RESOLVE_HINT_UNSPECIFIED = 0;
+  USERNAME = 1;
+  ID = 2;
+  SMART_ACCOUNT = 3;
+}
+message ResolvedAccount {
+  optional 9 smart_account_address = 1;
+  optional .auth.v1.ResolvedAccount.Kind kind = 2;
+  optional 9 root_username = 3;
+  optional 9 subaccount_label = 4;
+  optional 6 account_id = 5;
+}
+message ResolveAccountRequest {
+  optional 9 query = 1;
+  optional .auth.v1.ResolveHint hint = 2;
+  optional 8 include_subaccounts = 3;
+}
+message ResolveAccountResponse {
+  repeated .auth.v1.ResolvedAccount matches = 1;
+}
+service ResolveService {
+  rpc ResolveAccount(.auth.v1.ResolveAccountRequest) returns (.auth.v1.ResolveAccountResponse);
+}

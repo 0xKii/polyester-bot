@@ -1,0 +1,198 @@
+// ledger/read/v1/ledger_read.proto  package=ledger.read.v1
+enum BalanceRange {
+  RANGE_UNSPECIFIED = 0;
+  DAY_1 = 1;
+  DAY_7 = 2;
+  DAY_30 = 3;
+  DAY_90 = 4;
+  DAY_180 = 5;
+  DAY_365 = 6;
+}
+enum EquityGroupBy {
+  GROUP_BY_UNSPECIFIED = 0;
+  GROUP_BY_ACCOUNT = 1;
+  GROUP_BY_ASSET = 2;
+}
+enum TransferSideKind {
+  TRANSFER_SIDE_KIND_UNSPECIFIED = 0;
+  FUNDING_ACCOUNT = 1;
+  TRADING_ACCOUNT = 2;
+  EXTERNAL_ADDRESS = 3;
+  PRIVATE_COUNTERPARTY = 4;
+  FEE_ACCOUNT = 5;
+  SYSTEM_ACCOUNT = 6;
+}
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  ERROR_CODE_BAD_REQUEST = 1;
+  ERROR_CODE_UNAUTHENTICATED = 2;
+  ERROR_CODE_PERMISSION_DENIED = 3;
+  ERROR_CODE_NOT_FOUND = 4;
+  ERROR_CODE_MISSING_ACCOUNT_ID = 5;
+  ERROR_CODE_INVALID_ACCOUNT_ID = 6;
+  ERROR_CODE_MISSING_WALLET = 7;
+  ERROR_CODE_WALLET_RESOLUTION_UNAVAILABLE = 8;
+  ERROR_CODE_WALLET_NOT_FOUND = 9;
+  ERROR_CODE_UPSTREAM_ERROR = 10;
+}
+message GetBalancesRequest {
+  optional 6 subaccount_id = 1;
+}
+message AssetBalance {
+  optional 13 asset_id = 1;
+  optional .polyester.type.v1.U128 trading = 2;
+  optional .polyester.type.v1.U128 funding = 3;
+  optional .polyester.type.v1.U128 reserved = 4;
+  optional .polyester.type.v1.U128 available = 5;
+  optional 4 trading_revision = 6;
+  optional 4 funding_revision = 7;
+}
+message GetBalancesResponse {
+  repeated .ledger.read.v1.AssetBalance balances = 1;
+}
+message GetBalanceHistoryRequest {
+  optional 6 subaccount_id = 1;
+  optional .ledger.read.v1.BalanceRange range = 2;
+  optional 13 ledger = 3;
+  repeated .ledger.v1.AccountCode account_codes = 4;
+}
+message BalanceSeries {
+  optional 13 asset_id = 1;
+  optional .ledger.v1.AccountCode account_code = 2;
+  repeated 4 balance_q = 3;
+}
+message GetBalanceHistoryResponse {
+  optional .ledger.read.v1.BalanceRange range = 1;
+  optional 9 bucket = 2;
+  optional 7 start_ts_sec = 3;
+  optional 7 end_ts_sec = 4;
+  optional 13 points = 5;
+  repeated .ledger.read.v1.BalanceSeries series = 6;
+}
+message AccountGrouping {
+  optional 13 account_code = 1;
+  optional 9 name = 2;
+}
+message AssetGrouping {
+  optional 13 id = 1;
+  optional 9 symbol = 2;
+}
+message PortfolioAccountGrouping {
+  optional 6 account_id = 1;
+  optional 8 remaining = 2;
+}
+message GetEquityHistorySeriesRequest {
+  optional 6 subaccount_id = 1;
+  optional .ledger.read.v1.BalanceRange range = 2;
+  repeated .ledger.v1.AccountCode account_codes = 4;
+  optional .ledger.read.v1.EquityGroupBy group_by = 5;
+}
+message EquitySeries {
+  optional .ledger.read.v1.AccountGrouping account = 1;
+  optional .ledger.read.v1.AssetGrouping asset = 3;
+  optional .ledger.read.v1.PortfolioAccountGrouping portfolio_account = 4;
+  repeated 18 equity_q = 2;
+}
+message GetEquityHistorySeriesResponse {
+  optional .ledger.read.v1.BalanceRange range = 1;
+  optional 9 bucket = 2;
+  optional 7 start_ts_sec = 3;
+  optional 7 end_ts_sec = 4;
+  optional 9 quote_asset = 6;
+  optional 13 points = 7;
+  repeated .ledger.read.v1.EquitySeries series = 8;
+  repeated 3 btc_prices_q = 10;
+}
+message GetPortfolioEquityHistorySeriesRequest {
+  optional .ledger.read.v1.BalanceRange range = 1;
+}
+message GetPortfolioEquityHistorySeriesResponse {
+  optional .ledger.read.v1.BalanceRange range = 1;
+  optional 9 bucket = 2;
+  optional 7 start_ts_sec = 3;
+  optional 7 end_ts_sec = 4;
+  optional 9 quote_asset = 5;
+  optional 13 points = 6;
+  repeated .ledger.read.v1.EquitySeries series = 7;
+  repeated 3 btc_prices_q = 8;
+}
+message PortfolioAccountEquity {
+  optional 6 account_id = 1;
+  optional 18 equity_q = 2;
+  repeated 13 top_asset_ids = 3;
+}
+message PortfolioAssetEquity {
+  optional 13 asset_id = 1;
+  optional 4 balance_q = 2;
+  optional 18 equity_q = 3;
+}
+message GetPortfolioEquitySnapshotRequest {
+}
+message GetPortfolioEquitySnapshotResponse {
+  optional 9 quote_asset = 1;
+  optional 18 total_equity_q = 2;
+  repeated .ledger.read.v1.PortfolioAccountEquity accounts = 3;
+  repeated .ledger.read.v1.PortfolioAssetEquity assets = 4;
+  optional 3 btc_price_q = 5;
+}
+message ListTransfersRequest {
+  optional 6 subaccount_id = 1;
+  optional 13 limit = 2;
+  optional 8 reversed = 3;
+  optional 4 ts_min_us = 4;
+  optional 4 ts_max_us = 5;
+  optional .ledger.v1.TransferCode transfer_code = 6;
+  optional 13 ledger = 7;
+  optional 9 page_token = 9;
+}
+message TransferSide {
+  optional .ledger.read.v1.TransferSideKind kind = 1;
+  optional 6 account_id = 2;
+  optional 9 address = 3;
+  optional 13 chain_id = 4;
+}
+message TransferRow {
+  optional 13 asset_id = 1;
+  optional .polyester.type.v1.U128 amount_e18 = 2;
+  optional .ledger.v1.TransferCode transfer_code = 3;
+  optional .ledger.v1.AccountCode account_code = 4;
+  optional 4 ts_us = 5;
+  optional .polyester.type.v1.U128 balance_after_e18 = 9;
+  optional 8 is_debit = 10;
+  optional 4 link_id = 11;
+  optional 9 flow_id = 12;
+  optional .ledger.read.v1.TransferSide source = 13;
+  optional .ledger.read.v1.TransferSide destination = 14;
+}
+message ListTransfersResponse {
+  repeated .ledger.read.v1.TransferRow transfers = 1;
+  optional 9 next_page_token = 3;
+}
+message ListHoldsRequest {
+  optional 6 subaccount_id = 1;
+  optional 13 limit = 2;
+  optional 8 reversed = 3;
+  optional 9 page_token = 4;
+}
+message HoldRow {
+  optional 6 hold_id = 1;
+  optional .polyester.type.v1.U128 amount_reserved_e18 = 2;
+  optional 13 asset_id = 3;
+  optional 4 expires_at_ns = 4;
+}
+message ListHoldsResponse {
+  repeated .ledger.read.v1.HoldRow holds = 1;
+  optional 9 next_page_token = 2;
+}
+message ErrorDetail {
+  optional .ledger.read.v1.ErrorCode code = 1;
+}
+service LedgerReadService {
+  rpc GetBalanceHistory(.ledger.read.v1.GetBalanceHistoryRequest) returns (.ledger.read.v1.GetBalanceHistoryResponse);
+  rpc GetEquityHistorySeries(.ledger.read.v1.GetEquityHistorySeriesRequest) returns (.ledger.read.v1.GetEquityHistorySeriesResponse);
+  rpc GetPortfolioEquityHistorySeries(.ledger.read.v1.GetPortfolioEquityHistorySeriesRequest) returns (.ledger.read.v1.GetPortfolioEquityHistorySeriesResponse);
+  rpc GetPortfolioEquitySnapshot(.ledger.read.v1.GetPortfolioEquitySnapshotRequest) returns (.ledger.read.v1.GetPortfolioEquitySnapshotResponse);
+  rpc ListTransfers(.ledger.read.v1.ListTransfersRequest) returns (.ledger.read.v1.ListTransfersResponse);
+  rpc ListHolds(.ledger.read.v1.ListHoldsRequest) returns (.ledger.read.v1.ListHoldsResponse);
+  rpc GetBalances(.ledger.read.v1.GetBalancesRequest) returns (.ledger.read.v1.GetBalancesResponse);
+}

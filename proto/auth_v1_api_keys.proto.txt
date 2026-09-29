@@ -1,0 +1,76 @@
+// auth/v1/api_keys.proto  package=auth.v1
+enum ApiKeyStatus {
+  API_KEY_STATUS_UNSPECIFIED = 0;
+  ACTIVE = 1;
+  REVOKED = 2;
+  DISABLED = 3;
+}
+message ApiKey {
+  optional 9 key_id = 2;
+  optional 9 label = 3;
+  optional 9 icon = 9;
+  optional 9 color = 10;
+  repeated 9 ip_whitelist = 4;
+  optional .auth.v1.ApiKeyStatus status = 6;
+  optional 6 subaccount_id = 7;
+  optional 6 policy_id = 8;
+  optional .google.protobuf.Timestamp created_at = 20;
+  optional .google.protobuf.Timestamp last_used_at = 21;
+  optional 12 public_key_ed25519 = 22;
+  optional .google.protobuf.Timestamp expires_at = 23;
+  optional 9 created_by_actor = 24;
+  optional .google.protobuf.Timestamp updated_at = 25;
+  optional 4 revision = 26;
+}
+message CreateApiKeyRequest {
+  optional 9 label = 1;
+  optional 6 subaccount_id = 3;
+  optional 9 icon = 6;
+  optional 9 color = 7;
+  repeated 9 ip_whitelist = 4;
+  optional 12 public_key_ed25519 = 5;
+}
+message CreateApiKeyResponse {
+  optional .auth.v1.ApiKey api_key = 1;
+}
+message ListApiKeysRequest {
+  optional 6 subaccount_id = 1;
+}
+message ListApiKeysResponse {
+  repeated .auth.v1.ApiKey api_keys = 1;
+}
+message DeleteApiKeyRequest {
+  optional 9 key_id = 1;
+}
+message DeleteApiKeyResponse {
+}
+message GetApiKeyRequest {
+  optional 9 key_id = 1;
+}
+message GetApiKeyResponse {
+  optional .auth.v1.ApiKey api_key = 1;
+}
+message ApiKeyUpdateSpec {
+  optional 9 label = 1;
+  optional 9 icon = 2;
+  optional 9 color = 3;
+  optional .auth.v1.ApiKeyStatus status = 4;
+  repeated 9 ip_whitelist = 5;
+  optional .google.protobuf.Timestamp expires_at = 6;
+}
+message UpdateApiKeyRequest {
+  optional 9 key_id = 1;
+  optional .auth.v1.ApiKeyUpdateSpec api_key = 2;
+  optional .google.protobuf.FieldMask update_mask = 3;
+  optional 4 expected_revision = 4;
+}
+message UpdateApiKeyResponse {
+  optional .auth.v1.ApiKey api_key = 1;
+}
+service ApiKeyService {
+  rpc CreateApiKey(.auth.v1.CreateApiKeyRequest) returns (.auth.v1.CreateApiKeyResponse);
+  rpc ListApiKeys(.auth.v1.ListApiKeysRequest) returns (.auth.v1.ListApiKeysResponse);
+  rpc GetApiKey(.auth.v1.GetApiKeyRequest) returns (.auth.v1.GetApiKeyResponse);
+  rpc DeleteApiKey(.auth.v1.DeleteApiKeyRequest) returns (.auth.v1.DeleteApiKeyResponse);
+  rpc UpdateApiKey(.auth.v1.UpdateApiKeyRequest) returns (.auth.v1.UpdateApiKeyResponse);
+}

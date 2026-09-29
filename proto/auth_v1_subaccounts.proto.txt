@@ -1,0 +1,317 @@
+// auth/v1/subaccounts.proto  package=auth.v1
+enum SubaccountStatus {
+  SUBACCOUNT_STATUS_UNSPECIFIED = 0;
+  SUBACCOUNT_STATUS_ACTIVE = 1;
+  SUBACCOUNT_STATUS_DISABLED = 2;
+}
+enum SubaccountRole {
+  SUBACCOUNT_ROLE_UNSPECIFIED = 0;
+  VIEWER = 1;
+  TRADER = 2;
+  LEVERAGED_TRADER = 3;
+  TREASURY = 4;
+  ADMIN = 5;
+  OWNER = 6;
+}
+enum SubaccountPermission {
+  SUBACCOUNT_PERMISSION_UNSPECIFIED = 0;
+  SUBACCOUNT_PERMISSION_READ_SUBACCOUNT = 1;
+  SUBACCOUNT_PERMISSION_UPDATE_SUBACCOUNT = 2;
+  SUBACCOUNT_PERMISSION_READ_BALANCES = 3;
+  SUBACCOUNT_PERMISSION_READ_SPOT = 4;
+  SUBACCOUNT_PERMISSION_TRADE_SPOT = 5;
+  SUBACCOUNT_PERMISSION_READ_INTERNAL_TRANSFERS = 6;
+  SUBACCOUNT_PERMISSION_INTERNAL_TRANSFER = 7;
+  SUBACCOUNT_PERMISSION_EXTERNAL_WITHDRAW = 8;
+  SUBACCOUNT_PERMISSION_READ_ADDRESS_BOOK = 9;
+  SUBACCOUNT_PERMISSION_MANAGE_ADDRESS_BOOK = 10;
+  SUBACCOUNT_PERMISSION_READ_MEMBERS = 11;
+  SUBACCOUNT_PERMISSION_MANAGE_MEMBERS = 12;
+  SUBACCOUNT_PERMISSION_READ_INVITES = 13;
+  SUBACCOUNT_PERMISSION_MANAGE_INVITES = 14;
+  SUBACCOUNT_PERMISSION_READ_API_KEYS = 15;
+  SUBACCOUNT_PERMISSION_MANAGE_API_KEYS = 16;
+  SUBACCOUNT_PERMISSION_READ_SUBACCOUNT_POLICY = 17;
+  SUBACCOUNT_PERMISSION_MANAGE_SUBACCOUNT_POLICY = 18;
+  SUBACCOUNT_PERMISSION_READ_ACTIVITY = 19;
+  SUBACCOUNT_PERMISSION_READ_ACTIVITY_SECURITY_DETAILS = 20;
+  SUBACCOUNT_PERMISSION_MANAGE_MEMBER_MFA_REQUIREMENT = 21;
+  SUBACCOUNT_PERMISSION_CREATE_DEPOSIT_ADDRESS = 22;
+  SUBACCOUNT_PERMISSION_READ_DEPOSIT_ADDRESSES = 23;
+  SUBACCOUNT_PERMISSION_READ_GUARD_SIGNER_STATUS = 24;
+  SUBACCOUNT_PERMISSION_MANAGE_GUARD_SIGNER = 25;
+}
+enum SubaccountInviteStatus {
+  SUBACCOUNT_INVITE_STATUS_UNSPECIFIED = 0;
+  SUBACCOUNT_INVITE_STATUS_PENDING = 1;
+  SUBACCOUNT_INVITE_STATUS_ACCEPTED = 2;
+  SUBACCOUNT_INVITE_STATUS_DECLINED = 3;
+  SUBACCOUNT_INVITE_STATUS_CANCELLED = 4;
+}
+enum SubaccountInviteDirection {
+  DIRECTION_UNSPECIFIED = 0;
+  INCOMING = 1;
+  OUTGOING = 2;
+}
+enum SubaccountInviteAction {
+  SUBACCOUNT_INVITE_ACTION_UNSPECIFIED = 0;
+  SUBACCOUNT_INVITE_ACTION_ACCEPT = 1;
+  SUBACCOUNT_INVITE_ACTION_DECLINE = 2;
+  SUBACCOUNT_INVITE_ACTION_CANCEL = 3;
+}
+enum ActivityEntityKind {
+  ACTIVITY_ENTITY_UNSPECIFIED = 0;
+  ACTIVITY_ENTITY_ACCOUNT = 1;
+  ACTIVITY_ENTITY_SESSION = 2;
+  ACTIVITY_ENTITY_API_KEY = 3;
+  ACTIVITY_ENTITY_SUBACCOUNT = 4;
+  ACTIVITY_ENTITY_MEMBER = 5;
+  ACTIVITY_ENTITY_POLICY = 6;
+  ACTIVITY_ENTITY_INVITE = 7;
+  ACTIVITY_ENTITY_SECURITY = 8;
+  ACTIVITY_ENTITY_DESTINATION = 9;
+}
+enum ActivityEventAction {
+  ACTIVITY_ACTION_UNSPECIFIED = 0;
+  ACTIVITY_ACTION_CREATED = 1;
+  ACTIVITY_ACTION_UPDATED = 2;
+  ACTIVITY_ACTION_DELETED = 3;
+  ACTIVITY_ACTION_ENABLED = 4;
+  ACTIVITY_ACTION_DISABLED = 5;
+  ACTIVITY_ACTION_REMOVED = 6;
+  ACTIVITY_ACTION_ROLE_SET = 7;
+  ACTIVITY_ACTION_RECEIVED = 8;
+  ACTIVITY_ACTION_REPLIED = 9;
+  ACTIVITY_ACTION_FAILED = 10;
+  ACTIVITY_ACTION_REVOKED = 11;
+  ACTIVITY_ACTION_BLOCKED = 12;
+  ACTIVITY_ACTION_HOLD_PLACED = 13;
+  ACTIVITY_ACTION_HOLD_RELEASED = 14;
+}
+enum ActivityEventSource {
+  ACTIVITY_SOURCE_UNSPECIFIED = 0;
+  ACTIVITY_SOURCE_WEB = 1;
+  ACTIVITY_SOURCE_MOBILE = 2;
+  ACTIVITY_SOURCE_API = 3;
+}
+message SubaccountPermissionDefinition {
+  optional .auth.v1.SubaccountPermission permission = 1;
+  optional 9 display_name = 2;
+  optional 9 description = 3;
+  optional .auth.v1.PolicyAction policy_action = 4;
+}
+message SubaccountRoleDefinition {
+  optional .auth.v1.SubaccountRole role = 1;
+  optional 9 display_name = 2;
+  optional 9 description = 3;
+  optional 8 assignable = 4;
+  repeated .auth.v1.SubaccountPermission permissions = 5;
+}
+message ListSubaccountRolesRequest {
+}
+message ListSubaccountRolesResponse {
+  repeated .auth.v1.SubaccountPermissionDefinition permissions = 1;
+  repeated .auth.v1.SubaccountRoleDefinition roles = 2;
+}
+message GetEffectiveSubaccountPermissionsRequest {
+  optional 6 subaccount_id = 1;
+}
+message GetEffectiveSubaccountPermissionsResponse {
+  optional .auth.v1.SubaccountRole role = 1;
+  repeated .auth.v1.SubaccountPermission permissions = 2;
+  optional 6 subaccount_policy_id = 3;
+}
+message SubaccountRoleView {
+  optional 6 subaccount_id = 1;
+  optional .auth.v1.SubaccountRole role = 2;
+}
+message Subaccount {
+  optional 6 id = 1;
+  optional .auth.v1.SubaccountRole role = 2;
+  optional 9 label = 3;
+  optional 9 icon = 10;
+  optional 9 color = 11;
+  optional .auth.v1.SubaccountStatus status = 4;
+  optional 9 smart_account_address = 5;
+  optional 9 owner_username = 6;
+  optional 9 owner_avatar_url = 7;
+  optional 9 owner_root_smart_account_address = 8;
+  optional 6 subaccount_policy_id = 9;
+  optional 8 require_member_mfa = 12;
+  optional 13 smart_account_salt_nonce = 13;
+  optional .google.protobuf.Timestamp updated_at = 14;
+  optional 4 revision = 15;
+}
+message ListSubaccountsRequest {
+}
+message ListSubaccountsResponse {
+  repeated .auth.v1.Subaccount subaccounts = 1;
+  optional 13 total_created = 2;
+}
+message CreateSubaccountChallengeRequest {
+  optional 9 owner_address = 1;
+  optional 9 uri = 2;
+}
+message CreateSubaccountChallengeResponse {
+  optional 9 message = 1;
+  optional 9 smart_account_address = 2;
+  optional 13 smart_account_salt_nonce = 3;
+  optional .google.protobuf.Timestamp expires_at = 4;
+  optional 4 polyester_chain_id = 5;
+}
+message CreateSubaccountRequest {
+  optional 9 label = 1;
+  optional 9 icon = 7;
+  optional 9 color = 8;
+  optional 9 smart_account_address = 2;
+  optional 9 message = 3;
+  optional 9 signature = 4;
+}
+message CreateSubaccountResponse {
+  optional 6 subaccount_id = 1;
+  optional 13 total_created = 2;
+  optional 13 smart_account_salt_nonce = 3;
+  optional 4 revision = 4;
+}
+message SubaccountUpdateSpec {
+  optional 9 label = 1;
+  optional 9 icon = 2;
+  optional 9 color = 3;
+  optional .auth.v1.SubaccountStatus status = 4;
+}
+message UpdateSubaccountRequest {
+  optional 6 subaccount_id = 1;
+  optional .auth.v1.SubaccountUpdateSpec subaccount = 2;
+  optional .google.protobuf.FieldMask update_mask = 3;
+  optional 4 expected_revision = 4;
+}
+message UpdateSubaccountResponse {
+  optional .auth.v1.Subaccount subaccount = 1;
+}
+message SetSubaccountMemberMFARequirementRequest {
+  optional 6 subaccount_id = 1;
+  optional 8 require_member_mfa = 2;
+}
+message SetSubaccountMemberMFARequirementResponse {
+}
+message SubaccountMemberView {
+  optional 6 account_id = 1;
+  optional .auth.v1.SubaccountRole role = 2;
+  optional 9 username = 3;
+  optional 9 smart_account_address = 4;
+  optional 9 avatar_url = 5;
+  optional 8 mfa_enrolled = 6;
+}
+message ListSubaccountMembersRequest {
+  optional 6 subaccount_id = 1;
+}
+message ListSubaccountMembersResponse {
+  repeated .auth.v1.SubaccountMemberView members = 1;
+}
+message RemoveSubaccountMemberRequest {
+  optional 6 subaccount_id = 1;
+  optional 6 grantee_account_id = 2;
+}
+message RemoveSubaccountMemberResponse {
+}
+message UpdateSubaccountMemberRoleRequest {
+  optional 6 subaccount_id = 1;
+  optional 6 grantee_account_id = 2;
+  optional .auth.v1.SubaccountRole role = 3;
+}
+message UpdateSubaccountMemberRoleResponse {
+}
+message SubaccountInvite {
+  optional 6 id = 1;
+  optional 6 subaccount_id = 2;
+  optional 6 grantee_account_id = 3;
+  optional 6 inviter_account_id = 4;
+  optional .auth.v1.SubaccountRole role = 5;
+  optional .auth.v1.SubaccountInviteStatus status = 6;
+  optional .google.protobuf.Timestamp created_at = 7;
+  optional .google.protobuf.Timestamp responded_at = 8;
+  optional 9 grantee_username = 9;
+  optional 9 inviter_username = 10;
+  optional 9 subaccount_label = 11;
+  optional 9 inviter_root_smart_account_address = 12;
+  optional 9 grantee_root_smart_account_address = 13;
+  optional 8 require_member_mfa = 14;
+}
+message InviteSubaccountMemberRequest {
+  optional 6 subaccount_id = 1;
+  optional 6 grantee_account_id = 2;
+  optional .auth.v1.SubaccountRole role = 3;
+}
+message InviteSubaccountMemberResponse {
+  optional .auth.v1.SubaccountInvite invite = 1;
+}
+message ListSubaccountInvitesRequest {
+  optional .auth.v1.SubaccountInviteDirection direction = 1;
+}
+message ListSubaccountInvitesResponse {
+  repeated .auth.v1.SubaccountInvite invites = 1;
+}
+message RespondSubaccountInviteRequest {
+  optional 6 invite_id = 1;
+  optional .auth.v1.SubaccountInviteAction action = 2;
+}
+message RespondSubaccountInviteResponse {
+  optional .auth.v1.SubaccountInvite invite = 1;
+}
+message GetSubaccountRequest {
+  optional 6 subaccount_id = 1;
+  optional 8 include_api_keys = 2;
+  optional 8 include_members = 3;
+  optional 8 include_invites = 4;
+  optional 8 include_policy = 5;
+  optional 8 include_balances = 6;
+  optional .auth.v1.SubaccountInviteDirection invites_direction = 7;
+}
+message GetSubaccountResponse {
+  optional .auth.v1.Subaccount subaccount = 1;
+  repeated .auth.v1.ApiKey api_keys = 2;
+  repeated .auth.v1.SubaccountMemberView members = 3;
+  repeated .auth.v1.SubaccountInvite invites = 4;
+  optional .auth.v1.SubaccountPolicyView policy = 5;
+  optional .ledger.read.v1.GetBalancesResponse balances = 6;
+}
+message ActivityEvent {
+  optional .google.protobuf.Timestamp created_at = 2;
+  optional .auth.v1.ActivityEntityKind entity_kind = 3;
+  optional .auth.v1.ActivityEventAction event_action = 4;
+  optional .auth.v1.ActivityEventSource source = 5;
+  optional 9 ip = 6;
+  optional 9 user_agent = 7;
+  optional 6 actor_account_id = 8;
+  optional 9 payload_json = 9;
+}
+message ListSubaccountEventsRequest {
+  optional 6 subaccount_id = 1;
+  optional 13 limit = 2;
+  optional 9 page_token = 4;
+}
+message ListSubaccountEventsResponse {
+  repeated .auth.v1.ActivityEvent events = 1;
+  optional 9 next_page_token = 3;
+}
+service SubaccountViewService {
+  rpc GetSubaccount(.auth.v1.GetSubaccountRequest) returns (.auth.v1.GetSubaccountResponse);
+  rpc ListSubaccountActivity(.auth.v1.ListSubaccountEventsRequest) returns (.auth.v1.ListSubaccountEventsResponse);
+}
+service SubaccountService {
+  rpc ListSubaccounts(.auth.v1.ListSubaccountsRequest) returns (.auth.v1.ListSubaccountsResponse);
+  rpc CreateSubaccountChallenge(.auth.v1.CreateSubaccountChallengeRequest) returns (.auth.v1.CreateSubaccountChallengeResponse);
+  rpc CreateSubaccount(.auth.v1.CreateSubaccountRequest) returns (.auth.v1.CreateSubaccountResponse);
+  rpc UpdateSubaccount(.auth.v1.UpdateSubaccountRequest) returns (.auth.v1.UpdateSubaccountResponse);
+  rpc SetSubaccountMemberMFARequirement(.auth.v1.SetSubaccountMemberMFARequirementRequest) returns (.auth.v1.SetSubaccountMemberMFARequirementResponse);
+  rpc ListSubaccountMembers(.auth.v1.ListSubaccountMembersRequest) returns (.auth.v1.ListSubaccountMembersResponse);
+  rpc RemoveSubaccountMember(.auth.v1.RemoveSubaccountMemberRequest) returns (.auth.v1.RemoveSubaccountMemberResponse);
+  rpc UpdateSubaccountMemberRole(.auth.v1.UpdateSubaccountMemberRoleRequest) returns (.auth.v1.UpdateSubaccountMemberRoleResponse);
+  rpc InviteSubaccountMember(.auth.v1.InviteSubaccountMemberRequest) returns (.auth.v1.InviteSubaccountMemberResponse);
+  rpc ListSubaccountInvites(.auth.v1.ListSubaccountInvitesRequest) returns (.auth.v1.ListSubaccountInvitesResponse);
+  rpc RespondSubaccountInvite(.auth.v1.RespondSubaccountInviteRequest) returns (.auth.v1.RespondSubaccountInviteResponse);
+}
+service SubaccountRoleService {
+  rpc ListSubaccountRoles(.auth.v1.ListSubaccountRolesRequest) returns (.auth.v1.ListSubaccountRolesResponse);
+  rpc GetEffectiveSubaccountPermissions(.auth.v1.GetEffectiveSubaccountPermissionsRequest) returns (.auth.v1.GetEffectiveSubaccountPermissionsResponse);
+}

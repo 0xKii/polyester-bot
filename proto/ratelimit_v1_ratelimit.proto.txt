@@ -1,0 +1,33 @@
+// ratelimit/v1/ratelimit.proto  package=ratelimit.v1
+enum TradingRateLimitClass {
+  TRADING_RATE_LIMIT_CLASS_UNSPECIFIED = 0;
+  TRADING_RATE_LIMIT_CLASS_PLACE = 1;
+  TRADING_RATE_LIMIT_CLASS_CANCEL = 2;
+}
+message TradingRateLimitRule {
+  optional .ratelimit.v1.TradingRateLimitClass policy_class = 1;
+  optional 13 vip_tier = 2;
+  optional 4 quota_weight = 3;
+  optional 4 period_ms = 4;
+  optional 4 burst_weight = 5;
+}
+message GetRateLimitConfigRequest {
+}
+message GetRateLimitConfigResponse {
+  optional 4 policy_version = 1;
+  optional .google.protobuf.Timestamp effective_from = 2;
+  repeated .ratelimit.v1.TradingRateLimitRule rules = 3;
+}
+message GetTradingRateLimitsRequest {
+  optional 6 subaccount_id = 1;
+}
+message GetTradingRateLimitsResponse {
+  optional 4 policy_version = 1;
+  optional .google.protobuf.Timestamp effective_from = 2;
+  repeated .ratelimit.v1.TradingRateLimitRule rules = 3;
+  repeated .ratelimit.v1.TradingRateLimitRule api_key_rules = 4;
+}
+service RateLimitService {
+  rpc GetRateLimitConfig(.ratelimit.v1.GetRateLimitConfigRequest) returns (.ratelimit.v1.GetRateLimitConfigResponse);
+  rpc GetTradingRateLimits(.ratelimit.v1.GetTradingRateLimitsRequest) returns (.ratelimit.v1.GetTradingRateLimitsResponse);
+}
