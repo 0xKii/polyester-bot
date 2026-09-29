@@ -236,7 +236,7 @@ class Bot:
     def orders(self):
         return self.poly.open_orders()["body"], self.poly.order_history()["body"]
 
-    def market_order(self, symbol="BTC-USDT", side="buy", quote_usd=20.0,
+    def market_order(self, symbol="BTC-USDT", side="buy", quote_usd=100.0,
                      slippage_bps=500, qty_base=None):
         pairs = self.pairs()
         p = pairs.get(symbol)

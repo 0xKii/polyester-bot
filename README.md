@@ -53,13 +53,19 @@ Runs on the 13 USDT-quoted pairs. Each cycle:
 
 1. **Exit** held positions at take-profit / stop-loss (exits at mid price).
 2. **Scan** up to `picks` random pairs, compute 5-minute momentum vs SMA12:
-   - `> +0.25%` -> trend buy **$20**
-   - `< -0.25%` -> dip buy **$10** (mean reversion)
+   - `> +0.25%` -> trend buy, **$100-$200** scaled by momentum strength
+   - `< -0.25%` -> dip buy, **$100-$150** scaled by drop depth
    - flat -> skip
 3. Max **4** concurrent positions.
 
+Order size is flexible but **floored at $100** per entry: `MIN_NOTIONAL + (ceiling - MIN) * min(|mom| / 1.5%, 1)`
+(see `size_for()` in `strat.py`). A weak 0.25% signal still buys $100; a >=1.5% signal buys the ceiling.
+
 | Param | Value |
 |---|---|
+| Min notional (floor) | $100 |
+| Max notional (trend buy) | $200 |
+| Max notional (dip buy) | $150 |
 | Take profit | +1.2% |
 | Stop loss | -0.8% |
 | Momentum band | +/-0.25% |

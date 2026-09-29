@@ -2,11 +2,14 @@
 
 Per cycle:
   - check held positions: TP +1.2% / SL -0.8% (exit at mid)
-  - pick up to `targets` random USDT pairs; momentum on 5m candles:
-      up-momentum  (> +0.25% vs SMA12)  -> buy $20
-      down-momentum (< -0.25%)          -> dip buy $10 (mean reversion)
-      flat                             -> skip
-  - max 4 concurrent base positions; ~$20 notional per entry
+  - pick up to `picks` random USDT pairs; momentum on 5m candles:
+      up-momentum  (> +0.25% vs SMA12)  -> trend buy, $100-$200 scaled by strength
+      down-momentum (< -0.25%)          -> dip buy,   $100-$150 scaled by depth
+      flat                              -> skip
+  - max 4 concurrent base positions; every entry is >= $100 notional
+
+Size is flexible but floored at MIN_NOTIONAL ($100): the stronger the signal the
+larger the order, capped at MAX_NOTIONAL_MO / MAX_NOTIONAL_DIP.
 
 State: recon/positions.json  {pair: {symbolId, qty, entry_px, entry_ts, pnl_closed, base_asset_id}}
 """
@@ -27,12 +30,22 @@ USDT_PAIRS = {
     "HYPE-USDT": 18,
 }
 
-BUY_NOTIONAL = 20.0
-DIP_NOTIONAL = 10.0
+MIN_NOTIONAL = 100.0        # hard floor: no entry below this
+MAX_NOTIONAL_MO = 200.0     # trend buy ceiling (strong momentum)
+MAX_NOTIONAL_DIP = 150.0    # dip buy ceiling (deep drop)
+MOM_FULL = 0.015            # |momentum| that reaches the ceiling (1.5%)
 TP_PCT = 0.012
 SL_PCT = -0.008
 MOMENTUM_BAND = 0.0025
 MAX_POS = 4
+
+
+def size_for(mom):
+    """Flexible notional, floored at MIN_NOTIONAL. |mom| 0.25% -> min, >=1.5% -> max."""
+    scale = min(abs(mom) / MOM_FULL, 1.0)
+    ceil = MAX_NOTIONAL_MO if mom > 0 else MAX_NOTIONAL_DIP
+    n = MIN_NOTIONAL + (ceil - MIN_NOTIONAL) * scale
+    return float(max(MIN_NOTIONAL, min(ceil, n)))
 
 
 def load_state():
@@ -136,9 +149,9 @@ def run_cycle(bot, poly, pairs_cfg, picks=5):
         px = mid / ref
         mom = momentum(px_series)
         if mom > MOMENTUM_BAND:
-            notional, tag = BUY_NOTIONAL, "mo"
+            notional, tag = size_for(mom), "mo"
         elif mom < -MOMENTUM_BAND:
-            notional, tag = DIP_NOTIONAL, "dip"
+            notional, tag = size_for(mom), "dip"
         else:
             continue  # flat -> skip
         r = bot.market_order(symbol=pair, side="buy", quote_usd=notional, slippage_bps=500)
