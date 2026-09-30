@@ -26,7 +26,8 @@ rounds = int(args[0]) if args else 3
 def main():
     bot = Bot(os.environ["PK"]).open()
     if not bot.login():
-        print("polyester-daily | FATAL login failed", file=sys.stderr)
+        why = "cloudflare challenge" if getattr(bot, "cf_blocked", False) else "login failed"
+        print(f"polyester-daily | FATAL {why}", file=sys.stderr)
         sys.exit(1)
 
     claim_state = "n/a"

@@ -20,7 +20,8 @@ picks = int(sys.argv[1]) if len(sys.argv) > 1 else 6
 def main():
     bot = Bot(os.environ["PK"]).open()
     if not bot.login():
-        print("polyester-trade | FATAL login failed", file=sys.stderr)
+        why = "cloudflare challenge" if getattr(bot, "cf_blocked", False) else "login failed"
+        print(f"polyester-trade | FATAL {why}", file=sys.stderr)
         sys.exit(1)
     poly = bot.poly
     pairs_cfg = bot.pairs()

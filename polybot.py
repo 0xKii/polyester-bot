@@ -38,6 +38,7 @@ ETH_SEPOLIA = 2          # Polyester internal chain id for ethereum-sepolia
 PROVIDER = {"twitter": 1, "discord": 2, "1": 1, "2": 2}
 PROVIDER_NAME = {1: "TWITTER", 2: "DISCORD"}
 METHOD = {"profile": 1, "channel": 2, "dm": 3, "1": 1, "2": 2, "3": 3}
+CF_MAX_WAIT = 150        # seconds to let a rate-limited CF managed challenge settle
 
 
 def log(*a):
@@ -52,6 +53,7 @@ class Bot:
         self.ctx = None
         self.page = None
         self.poly = None
+        self.cf_blocked = False
 
     # ---------- lifecycle ----------
     def open(self):
@@ -94,25 +96,63 @@ class Bot:
         return bool(self.poly.token())
 
     def go(self, path, wait=5):
+        """Navigate and wait for Cloudflare's managed challenge to clear.
+
+        The challenge is sometimes rate-limited (`cf_chl_rc_ni`) and can take 60s+ to
+        auto-settle; a plain 60s wait made `login()` click on the interstitial page and
+        report a bogus 'FATAL login failed'. Wait up to CF_MAX_WAIT and expose the state
+        via self.cf_blocked so callers can report something truthful.
+        """
+        self.cf_blocked = False
         self.page.goto(CB.BASE + path, wait_until="domcontentloaded", timeout=60000)
         t0 = time.time()
-        while time.time() - t0 < 60:
-            if "Just a moment" not in self.page.title():
+        while time.time() - t0 < CF_MAX_WAIT:
+            title = self.page.title()
+            if "Just a moment" not in title and "Attention Required" not in title:
                 break
-            time.sleep(2)
+            time.sleep(3)
+        else:
+            self.cf_blocked = True
+            log(f"cloudflare challenge still up after {CF_MAX_WAIT}s")
         time.sleep(wait)
         self._inject()
+
+    def _click_login_button(self, label="Continue with MetaMask"):
+        """Click a login button robustly: text locator -> button locator -> raw mouse click."""
+        attempts = [
+            lambda loc: loc.click(timeout=12000),
+            lambda loc: loc.click(timeout=8000, force=True),
+        ]
+        for sel in (f'button:has-text("{label}")', f'a:has-text("{label}")',
+                    f'text={label}'):
+            loc = self.page.locator(sel)
+            try:
+                if loc.count() == 0:
+                    continue
+            except Exception:
+                continue
+            for att in attempts:
+                try:
+                    att(loc.first)
+                    return True
+                except Exception as e:
+                    log(f"click {sel} failed: {str(e)[:80]}")
+            bb = loc.first.bounding_box()
+            if bb:
+                self.page.mouse.click(bb["x"] + bb["width"] / 2, bb["y"] + bb["height"] / 2)
+                return True
+        return False
 
     def login(self):
         if self.logged_in():
             log("already logged in")
             return True
         self.go("/connect", 3)
-        try:
-            self.page.get_by_text("Continue with MetaMask", exact=False).first.click(timeout=20000)
-            log("clicked MetaMask")
-        except Exception as e:
-            log("click err", str(e)[:100])
+        if getattr(self, "cf_blocked", False):
+            # one reload attempt: a fresh document often clears the rate-limited jitter
+            self.go("/connect", 3)
+        clicked = self._click_login_button()
+        log("clicked MetaMask" if clicked else "login button not found")
         for i in range(25):
             time.sleep(3)
             if self.logged_in() and "/connect" not in self.page.url:
@@ -120,7 +160,10 @@ class Bot:
                 return True
             if "/connect" not in self.page.url and self.logged_in():
                 return True
-        log("login FAILED")
+        if getattr(self, "cf_blocked", False):
+            log("login FAILED (cloudflare challenge)")
+        else:
+            log("login FAILED")
         return False
 
     # ---------- tasks ----------
