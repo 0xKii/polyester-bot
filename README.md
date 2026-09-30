@@ -56,7 +56,8 @@ Runs on the 13 USDT-quoted pairs. Each cycle:
    - `> +0.25%` -> trend buy, **$100-$200** scaled by momentum strength
    - `< -0.25%` -> dip buy, **$100-$150** scaled by drop depth
    - flat -> skip
-3. Max **4** concurrent positions.
+3. Max **6** concurrent positions (gross exposure capped at $700 so it stays under the liquid
+   quote balance).
 
 Order size is flexible but **floored at $100** per entry: `MIN_NOTIONAL + (ceiling - MIN) * min(|mom| / 1.5%, 1)`
 (see `size_for()` in `strat.py`). A weak 0.25% signal still buys $100; a >=1.5% signal buys the ceiling.
@@ -66,10 +67,11 @@ Order size is flexible but **floored at $100** per entry: `MIN_NOTIONAL + (ceili
 | Min notional (floor) | $100 |
 | Max notional (trend buy) | $200 |
 | Max notional (dip buy) | $150 |
+| Max gross exposure | $700 |
 | Take profit | +1.2% |
 | Stop loss | -0.8% |
 | Momentum band | +/-0.25% |
-| Max positions | 4 |
+| Max positions | 6 |
 
 State is kept in `recon/positions.json` (gitignored).
 

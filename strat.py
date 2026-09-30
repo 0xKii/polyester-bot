@@ -6,7 +6,7 @@ Per cycle:
       up-momentum  (> +0.25% vs SMA12)  -> trend buy, $100-$200 scaled by strength
       down-momentum (< -0.25%)          -> dip buy,   $100-$150 scaled by depth
       flat                              -> skip
-  - max 4 concurrent base positions; every entry is >= $100 notional
+  - max 6 concurrent base positions (gross capped at MAX_GROSS_NOTIONAL); every entry is >= $100 notional
 
 Size is flexible but floored at MIN_NOTIONAL ($100): the stronger the signal the
 larger the order, capped at MAX_NOTIONAL_MO / MAX_NOTIONAL_DIP.
@@ -37,7 +37,8 @@ MOM_FULL = 0.015            # |momentum| that reaches the ceiling (1.5%)
 TP_PCT = 0.012
 SL_PCT = -0.008
 MOMENTUM_BAND = 0.0025
-MAX_POS = 4
+MAX_POS = 6
+MAX_GROSS_NOTIONAL = 700.0  # keep total open exposure under the liquid quote balance
 
 
 def size_for(mom):
@@ -130,6 +131,7 @@ def run_cycle(bot, poly, pairs_cfg, picks=5):
         save_state(st)
 
     held = len(st)
+    gross = sum((v.get("entry_px") or 0) * (v.get("qty") or 0) for v in st.values())
     # --- entries ---
     chosen = [p for p in random.sample(list(USDT_PAIRS), min(picks, len(USDT_PAIRS))) if p not in st]
     for pair in chosen:
@@ -154,9 +156,13 @@ def run_cycle(bot, poly, pairs_cfg, picks=5):
             notional, tag = size_for(mom), "dip"
         else:
             continue  # flat -> skip
+        if gross + notional > MAX_GROSS_NOTIONAL:
+            log(f"skip {pair}: gross {gross:.0f} + {notional:.0f} > cap {MAX_GROSS_NOTIONAL:.0f}")
+            continue
         r = bot.market_order(symbol=pair, side="buy", quote_usd=notional, slippage_bps=500)
         if r is not None:
             held += 1
+            gross += notional
             st[pair] = {"symbolId": sym_id, "qty": r["qty_base"], "entry_px": px,
                         "entry_ts": time.time(), "tag": tag, "pnl_closed": 0.0,
                         "orderId": r.get("orderId")}
