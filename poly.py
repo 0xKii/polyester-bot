@@ -1,5 +1,8 @@
 """Polyester testnet API client — calls ConnectRPC services from inside the logged-in page."""
 import json
+import time
+
+import cdp_browser as CB
 
 API = "https://api.testnet.polyester.com"
 
@@ -31,20 +34,52 @@ class Poly:
                 return c["value"]
         return None
 
-    def call(self, path, payload=None):
+    def _usable(self):
+        """True when the page sits on the app origin.
+
+        Running the in-page fetch from the Cloudflare interstitial (or any other page)
+        trips that page's CSP: connect-src blocks api.testnet.polyester.com and Playwright
+        surfaces it as `Page.evaluate: TypeError: Failed to fetch`. Check before every call.
+        """
+        try:
+            url = self.page.url or ""
+        except Exception:
+            return False
+        if not url.startswith(CB.BASE):
+            return False
+        try:
+            return not CB.is_challenge(self.page)
+        except Exception:
+            return False
+
+    def _recover(self):
+        """Re-seat the page on the app origin: wait out CF, else reload and re-inject."""
+        try:
+            if CB.is_challenge(self.page):
+                CB.pass_cf(self.page, 90, "-api")
+            if self._usable():
+                return True
+            self.page.goto(CB.BASE + "/account/dashboard",
+                           wait_until="domcontentloaded", timeout=60000)
+            CB.pass_cf(self.page, 90, "-api")
+            if not self._usable():
+                return False
+            self.page.evaluate(CB.INJECT)
+            return True
+        except Exception:
+            return False
+
+    def call(self, path, payload=None, tries=4):
         last = None
-        for i in range(3):
+        for i in range(tries):
             try:
+                if not self._usable():
+                    self._recover()
                 return self.page.evaluate(JS_CALL, [API, path, payload or {}, self.token()])
             except Exception as e:
                 last = e
-                import time as _t
-                _t.sleep(2)
-                try:
-                    import cdp_browser as CB
-                    CB.pass_cf(self.page, 60, "-api")
-                except Exception:
-                    pass
+                time.sleep(2 + 3 * i)
+                self._recover()
         raise last
 
     # ---- convenience wrappers ----
