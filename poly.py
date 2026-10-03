@@ -53,15 +53,21 @@ class Poly:
             return False
 
     def _recover(self):
-        """Re-seat the page on the app origin: wait out CF, else reload and re-inject."""
+        """Re-seat the page on the app origin.
+
+        Never reload an active CF challenge: it feeds the rate limiter. Wait the jitter out,
+        and only navigate when the page is genuinely elsewhere (about:blank, chrome error,
+        a different origin).
+        """
         try:
             if CB.is_challenge(self.page):
-                CB.pass_cf(self.page, 90, "-api")
-            if self._usable():
+                CB.pass_cf(self.page, 180, "-api")
+                return not CB.is_challenge(self.page)
+            if (self.page.url or "").startswith(CB.BASE):
                 return True
             self.page.goto(CB.BASE + "/account/dashboard",
                            wait_until="domcontentloaded", timeout=60000)
-            CB.pass_cf(self.page, 90, "-api")
+            CB.pass_cf(self.page, 180, "-api")
             if not self._usable():
                 return False
             self.page.evaluate(CB.INJECT)

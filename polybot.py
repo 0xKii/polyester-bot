@@ -38,7 +38,7 @@ ETH_SEPOLIA = 2          # Polyester internal chain id for ethereum-sepolia
 PROVIDER = {"twitter": 1, "discord": 2, "1": 1, "2": 2}
 PROVIDER_NAME = {1: "TWITTER", 2: "DISCORD"}
 METHOD = {"profile": 1, "channel": 2, "dm": 3, "1": 1, "2": 2, "3": 3}
-CF_MAX_WAIT = 150        # seconds to let a rate-limited CF managed challenge settle
+CF_MAX_WAIT = 180        # seconds to let a rate-limited CF managed challenge settle
 
 
 def log(*a):
@@ -149,8 +149,12 @@ class Bot:
             return True
         self.go("/connect", 3)
         if getattr(self, "cf_blocked", False):
-            # one reload attempt: a fresh document often clears the rate-limited jitter
-            self.go("/connect", 3)
+            # never reload an active challenge: wait the jitter out instead
+            CB.pass_cf(self.page, 180, "-login")
+            self._inject()
+            if CB.is_challenge(self.page):
+                log("login FAILED (cloudflare challenge)")
+                return False
         clicked = self._click_login_button()
         log("clicked MetaMask" if clicked else "login button not found")
         for i in range(25):

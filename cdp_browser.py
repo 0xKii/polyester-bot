@@ -85,31 +85,38 @@ def click_turnstile(page) -> bool:
     return False
 
 
-def pass_cf(page, timeout=120, label="") -> bool:
-    """Wait out / solve the Cloudflare challenge: click the checkbox, reload on stall."""
+def pass_cf(page, timeout=180, label="") -> bool:
+    """Wait out / solve the Cloudflare challenge: click the checkbox, reload ONCE on a real stall.
+
+    Reloading an active challenge is what pushes CF from auto-pass into the long
+    rate-limited jitter, so the reload is late (>=120s stall) and happens at most once.
+    """
     t0 = time.time()
     last_click = 0
     clicks = 0
+    reloads = 0
     while time.time() - t0 < timeout:
         if not is_challenge(page):
             print(f"  [cf{label}] passed in {time.time()-t0:.1f}s", flush=True)
             return True
-        if clicks < 8 and time.time() - last_click > 5:
+        now = time.time()
+        if clicks < 8 and now - last_click > 5:
             if click_turnstile(page):
                 clicks += 1
-                last_click = time.time()
+                last_click = now
                 print(f"  [cf{label}] clicked checkbox #{clicks}", flush=True)
-        # stall -> reload (but not too eagerly)
-        if time.time() - last_click > 50 and time.time() - t0 > 50:
+        # stall -> a single late reload (never more: reloading feeds the rate limiter)
+        if reloads < 1 and now - t0 > 120 and now - max(last_click, t0) > 120:
             try:
                 page.reload(wait_until="domcontentloaded", timeout=45000)
             except Exception:
                 pass
+            reloads += 1
             last_click = time.time()
             clicks = 0
-            print(f"  [cf{label}] reload", flush=True)
+            print(f"  [cf{label}] single reload after {now-t0:.0f}s", flush=True)
         time.sleep(1.5)
-    print(f"  [cf{label}] TIMEOUT", flush=True)
+    print(f"  [cf{label}] TIMEOUT after {timeout}s", flush=True)
     return False
 
 
