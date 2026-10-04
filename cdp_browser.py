@@ -174,13 +174,41 @@ def launch(url=BASE, headless_display=":99"):
 
 
 def page_target():
+    """Best Polyester page target: the dashboard wins, stale/404 tabs are skipped."""
+    try:
+        pages = [t for t in requests.get(f"http://127.0.0.1:{PORT}/json", timeout=5).json()
+                 if t.get("type") == "page" and (t.get("url") or "").startswith("http")]
+    except Exception:
+        return None
+
+    def score(t):
+        u = (t.get("url") or "").lower()
+        if "polyester" not in u:
+            return -1
+        s = 1
+        if "/account/dashboard" in u:
+            s += 4
+        if "/account/fees" in u or "error 404" in (t.get("title") or "").lower():
+            s -= 2
+        return s
+
+    pages = [t for t in pages if score(t) >= 0]
+    if not pages:
+        return None
+    return max(pages, key=score)
+
+
+def close_stale_tabs(keep_id=None, origin="testnet.polyester.com"):
+    """Close leftover Polyester tabs (recon leftovers, duplicates) so Chrome stops growing."""
     try:
         for t in requests.get(f"http://127.0.0.1:{PORT}/json", timeout=5).json():
-            if t.get("type") == "page" and "polyester" in (t.get("url") or ""):
-                return t
+            if t.get("type") != "page" or t.get("id") == keep_id:
+                continue
+            url = t.get("url") or ""
+            if origin in url or url in ("about:blank", ""):
+                requests.get(f"http://127.0.0.1:{PORT}/json/close/{t['id']}", timeout=3)
     except Exception:
         pass
-    return None
 
 
 def wait_page(timeout=120):
@@ -203,5 +231,6 @@ def ensure_chrome(url=BASE):
         launch(url)
     t = wait_page()
     if t:
+        close_stale_tabs(t.get("id"))     # recon leftovers (/account/fees 404) pile up otherwise
         log("chrome ready:", t.get("title"), "|", t.get("url"))
     return t

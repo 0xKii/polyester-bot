@@ -33,6 +33,10 @@ USDT_PAIRS = {
     "TRX-USDT": 14, "AVAX-USDT": 15, "POL-USDT": 16, "ETC-USDT": 17,
     "HYPE-USDT": 18,
 }
+# USDC-quoted pairs: claim rewards pay USDC on alternate days and USDC-USDT is far off par
+# (best bid 0.95), so trading USDC pairs beats swapping it away at a 5% haircut.
+USDC_PAIRS = {"BTC-USDC": 7, "ETH-USDC": 8, "SOL-USDC": 9}
+ALL_PAIRS = {**USDT_PAIRS, **USDC_PAIRS}
 
 MIN_NOTIONAL = 300.0        # hard floor: no entry below this (also pushes 30d volume up)
 MAX_NOTIONAL_MO = 600.0     # trend buy ceiling (strong momentum)
@@ -46,18 +50,29 @@ MAX_GROSS_NOTIONAL = 3000.0  # keep total open exposure under the liquid quote b
 MAX_ENTRIES_PER_CYCLE = 4    # pace the churn: at most N new entries per cycle
 ROTATE_MIN_MOM = 0.008       # only rotate a loser out for a >=0.8% signal
 ROTATE_WEAK_PCT = -0.5       # ...and only when the weakest position is down >=0.5%
+MAX_SPREAD_BPS = 35.0        # a wider book than this costs more than the take-profit
+
+
+def top_book(poly, symbol_id):
+    """(best bid, best ask) in raw ticks -- the prices we can really sell at / buy at."""
+    ob = poly.call("orderbook.v1.OrderbookService/GetOrderBook",
+                   {"symbolId": symbol_id, "depth": 1})["body"] or {}
+    bids, asks = ob.get("bids") or [], ob.get("asks") or []
+    b = float(bids[0]["priceTicks"]) if bids else None
+    a = float(asks[0]["priceTicks"]) if asks else None
+    return b, a
 
 
 def pos_pct(poly, pairs_cfg, pair, pos):
-    """Live (price, pct vs entry) for an open position."""
+    """Live (sellable price, pct vs entry) for an open position -- valued at the bid."""
     p = pairs_cfg.get(pair)
     if not p:
         return None, None
     ref = 10 ** int(p.get("referencePriceScale") or 9)
-    mid = mid_price(poly, pos["symbolId"])
-    if mid is None:
+    bid, _ask = top_book(poly, pos["symbolId"])
+    if bid is None:
         return None, None
-    px = mid / ref
+    px = bid / ref
     entry = pos.get("entry_px") or 0
     return px, ((px / entry - 1.0) * 100 if entry else 0.0)
 
@@ -154,6 +169,12 @@ def run_cycle(bot, poly, pairs_cfg):
     st = load_state()
     actions = []
     closed = []
+    stable = {"USDT": 0.0, "USDC": 0.0}     # entries can only use their own quote asset
+    try:
+        u, c = bot.stable_balances()
+        stable = {"USDT": u, "USDC": c}
+    except Exception as e:
+        log("stable balance probe failed:", repr(e))
 
     # --- exits: TP/SL on held positions ---
     for pair, pos in list(st.items()):
@@ -162,21 +183,25 @@ def run_cycle(bot, poly, pairs_cfg):
         if not p:
             continue
         ref = 10 ** int(p.get("referencePriceScale") or 9)
-        mid = mid_price(poly, sym_id)
-        if mid is None:
+        bid, _ask = top_book(poly, sym_id)
+        if bid is None:
             continue
-        px = mid / ref
+        px = bid / ref          # an exit fills at the bid, never at the mid
         entry = pos["entry_px"]
         pct = (px / entry - 1.0) * 100 if entry else 0.0
         if pct >= TP_PCT * 100 or pct <= SL_PCT * 100:
             r = bot.market_order(symbol=pair, side="sell", quote_usd=0,
-                                 qty_base=pos.get("qty"), slippage_bps=1000)
+                                 qty_base=pos.get("qty"))
             if r is not None:
-                pnl = (px - entry) * pos.get("qty", 0)
-                closed.append((pair, round(pct, 2), round(pnl, 2)))
+                fill_px = r.get("price") or px
+                pnl = (fill_px - entry) * pos.get("qty", 0)
+                fill_pct = (fill_px / entry - 1.0) * 100 if entry else pct
+                closed.append((pair, round(fill_pct, 2), round(pnl, 2)))
                 pos["pnl_closed"] = round(pos.get("pnl_closed", 0.0) + pnl, 4)
                 del st[pair]
-                actions.append(f"exit {pair} {pct:+.2f}%")
+                actions.append(f"exit {pair} {fill_pct:+.2f}%")
+                q_o = pair.split("-")[1]
+                stable[q_o] = stable.get(q_o, 0.0) + fill_px * pos.get("qty", 0)
             time.sleep(1.5)
     if st:
         save_state(st)
@@ -185,9 +210,9 @@ def run_cycle(bot, poly, pairs_cfg):
     held = len(st)
     gross = sum((v.get("entry_px") or 0) * (v.get("qty") or 0) for v in st.values())
 
-    # --- candidates: scan EVERY USDT pair and rank by signal strength (no random sample) ---
+    # --- candidates: scan EVERY pair and rank by signal strength (no random sample) ---
     cands = []
-    for pair, sym_id in USDT_PAIRS.items():
+    for pair, sym_id in ALL_PAIRS.items():
         if pair in st:
             continue
         p = pairs_cfg.get(pair)
@@ -196,10 +221,14 @@ def run_cycle(bot, poly, pairs_cfg):
         px_series = candles_5m(poly, sym_id)
         if not px_series:
             continue
-        mid = mid_price(poly, sym_id)
-        if mid is None:
+        bid, ask = top_book(poly, sym_id)
+        if not bid or not ask:
             continue
-        px = mid / (10 ** int(p.get("referencePriceScale") or 9))
+        spread_bps = (ask - bid) / ((ask + bid) / 2.0) * 1e4
+        if spread_bps > MAX_SPREAD_BPS:
+            log(f"skip {pair}: spread {spread_bps:.0f}bps > {MAX_SPREAD_BPS:.0f}bps")
+            continue
+        px = ask / (10 ** int(p.get("referencePriceScale") or 9))   # entries pay the ask
         mom = momentum(px_series)
         if abs(mom) > MOMENTUM_BAND:
             cands.append((pair, sym_id, px, mom))
@@ -214,6 +243,10 @@ def run_cycle(bot, poly, pairs_cfg):
             break
         notional = size_for(mom, pl)
         tag = "mo" if mom > 0 else "dip"
+        quote = pair.split("-")[1]
+        if stable.get(quote, 0.0) < notional:
+            log(f"skip {pair}: {quote} balance ${stable.get(quote, 0.0):,.0f} < ${notional:,.0f}")
+            continue
         if held >= max_pos or gross + notional > gross_cap:
             if abs(mom) < ROTATE_MIN_MOM:
                 log(f"full: slots {held}/{max_pos}, gross {gross:.0f}/{gross_cap:.0f} -> skip {pair} (mom {mom*100:+.2f}%)")
@@ -224,10 +257,12 @@ def run_cycle(bot, poly, pairs_cfg):
                 continue
             q, qpx, qpct = weak
             r = bot.market_order(symbol=q, side="sell", quote_usd=0,
-                                 qty_base=st[q].get("qty"), slippage_bps=1000)
+                                 qty_base=st[q].get("qty"))
             if r is None:
                 continue
-            pnl = (qpx - st[q]["entry_px"]) * st[q].get("qty", 0)
+            qfill = r.get("price") or qpx
+            pnl = (qfill - st[q]["entry_px"]) * st[q].get("qty", 0)
+            qpct = (qfill / st[q]["entry_px"] - 1.0) * 100 if st[q].get("entry_px") else qpct
             closed.append((q, round(qpct, 2), round(pnl, 2)))
             del st[q]
             held = len(st)
@@ -235,16 +270,19 @@ def run_cycle(bot, poly, pairs_cfg):
             save_state(st)
             actions.append(f"rotate {q} {qpct:+.2f}% -> {pair} ({mom*100:+.2f}%)")
             time.sleep(2)
-        r = bot.market_order(symbol=pair, side="buy", quote_usd=notional, slippage_bps=500)
+        r = bot.market_order(symbol=pair, side="buy", quote_usd=notional)
         if r is not None:
+            fill_px = r.get("price") or px
+            filled_notional = fill_px * r["qty_base"]
             held += 1
             entries += 1
-            gross += notional
-            st[pair] = {"symbolId": sym_id, "qty": r["qty_base"], "entry_px": px,
+            gross += filled_notional
+            stable[quote] = max(0.0, stable.get(quote, 0.0) - filled_notional)
+            st[pair] = {"symbolId": sym_id, "qty": r["qty_base"], "entry_px": fill_px,
                         "entry_ts": time.time(), "tag": tag, "pnl_closed": 0.0,
                         "orderId": r.get("orderId")}
             save_state(st)
-            actions.append(f"buy {pair} {notional:.0f}U qty={r['qty_base']:.6g} mom={mom*100:+.2f}% @{px:.2f}")
+            actions.append(f"buy {pair} {filled_notional:.0f}U qty={r['qty_base']:.6g} mom={mom*100:+.2f}% @{fill_px:.2f}")
         time.sleep(1.5)
 
     # report

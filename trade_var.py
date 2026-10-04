@@ -27,6 +27,10 @@ def main():
         sys.exit(1)
     poly = bot.poly
     pairs_cfg = bot.pairs()
+    try:
+        bot.ensure_quote()        # only USDT pairs are traded; idle USDC is swapped in when low
+    except Exception as e:
+        polybot.log("ensure_quote failed:", repr(e))
 
     before = time.time()
     res = strat.run_cycle(bot, poly, pairs_cfg)

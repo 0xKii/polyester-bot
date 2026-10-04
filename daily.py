@@ -42,6 +42,10 @@ def main():
     # varied multi-pair strategy cycle (momentum/dip entries + TP/SL exits)
     import strat
     pairs_cfg = bot.pairs()
+    try:
+        bot.ensure_quote()        # claim pays USDC on alternate days; entries need USDT
+    except Exception as e:
+        polybot.log("ensure_quote failed:", repr(e))
     res = strat.run_cycle(bot, bot.poly, pairs_cfg)
     st = bot.claim_status()
     bal = bot.non_zero_balances()

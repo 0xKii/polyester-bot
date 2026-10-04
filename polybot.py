@@ -196,6 +196,48 @@ class Bot:
     def claim_status(self):
         return self.poly.claim_status()["body"]
 
+    def stable_balances(self):
+        """(USDT, USDC) available in the trading account -- the money entries can actually use."""
+        bal = {"USDT": 0.0, "USDC": 0.0}
+        for b in ((self.balances() or {}).get("balances") or []):
+            s = {1: "USDT", 2: "USDC"}.get(b.get("assetId"))
+            if not s:
+                continue
+            v = b.get("trading") or {}
+            bal[s] += (int(v.get("hi", 0) or 0) * 2**64 + int(v.get("lo", 0) or 0)) / 1e18
+        return bal["USDT"], bal["USDC"]
+
+    def ensure_quote(self, min_usdt=500.0, target_usdt=1500.0, keep_usdc=200.0, min_rate=0.995):
+        """Top the USDT quote balance up from idle USDC, so entries can actually fill.
+
+        Only USDT pairs are traded, and claim rewards pay in USDC on alternate days -- without
+        this swap the bot sits on a pile of USDC and errors out with INSUFFICIENT_FUNDS.
+        USDC-USDT is base=USDC / quote=USDT, so selling base USDC buys the USDT we need.
+
+        The book on USDC-USDT is thin and can sit well below par (seen: best bid 0.95, i.e. a 5%
+        haircut on the whole swap), so bail out unless the top bid is at least `min_rate`."""
+        usdt, usdc = self.stable_balances()
+        if usdt >= min_usdt or usdc <= keep_usdc:
+            return None
+        want = min(target_usdt - usdt, usdc - keep_usdc)
+        if want < 10:
+            return None
+        p = self.pairs().get("USDC-USDT")
+        if not p:
+            return None
+        best_bid, room = self._band(self._levels(p, "sell"), "sell", 20)
+        if best_bid is None or best_bid < min_rate or room < want:
+            log(f"quote top-up skipped: best USDC/USDT bid {best_bid} (need >= {min_rate}), "
+                f"${room:,.0f} available -- not paying a haircut to swap")
+            return None
+        log(f"quote top-up: USDT=${usdt:,.0f} USDC=${usdc:,.0f} -> swapping ${want:,.0f} USDC into USDT")
+        r = self.market_order(symbol="USDC-USDT", side="sell", quote_usd=0, qty_base=want,
+                              slippage_bps=20)
+        if r:
+            log(f"quote top-up done: {r['qty_base']:,.2f} USDC @ {r['price']:.5f} "
+                f"(haircut {10000*(1-r['price']):.1f}bps)")
+        return r
+
     def claim(self):
         st = self.claim_status()
         log("claim state:", st.get("state"), "reset:", st.get("resetAt"))
@@ -288,24 +330,45 @@ class Bot:
     def orders(self):
         return self.poly.open_orders()["body"], self.poly.order_history()["body"]
 
+    # ---------- order book helpers: size to what the book can actually absorb ----------
+    def _levels(self, p, side, depth=5):
+        """[(price, qty_base)] for the side we would hit, best level first."""
+        ob = self.poly.call("orderbook.v1.OrderbookService/GetOrderBook",
+                            {"symbolId": p["symbolId"], "depth": depth})["body"] or {}
+        ref = 10 ** int(p.get("referencePriceScale") or 9)
+        scale = int(p.get("baseQuantityScale") or 0)
+        raw = (ob.get("asks") if side == "buy" else ob.get("bids")) or []
+        return [(float(lv["priceTicks"]) / ref, float(lv.get("qtyScaled") or 0) / (10 ** scale))
+                for lv in raw if lv.get("priceTicks")]
+
+    @staticmethod
+    def _band(levels, side, band_bps):
+        """(best price, notional fillable) inside a slippage band around the best level."""
+        if not levels:
+            return None, 0.0
+        best = levels[0][0]
+        limit = best * (1 + band_bps / 1e4) if side == "buy" else best * (1 - band_bps / 1e4)
+        tot = 0.0
+        for px, q in levels:
+            if (side == "buy" and px > limit) or (side == "sell" and px < limit):
+                break
+            tot += px * q
+        return best, tot
+
     def market_order(self, symbol="BTC-USDT", side="buy", quote_usd=100.0,
-                     slippage_bps=500, qty_base=None):
+                     slippage_bps=None, qty_base=None):
         pairs = self.pairs()
         p = pairs.get(symbol)
         if not p:
             log("unknown symbol", symbol, "have:", list(pairs)[:20])
             return None
-        ob = self.poly.call("orderbook.v1.OrderbookService/GetOrderBook",
-                            {"symbolId": p["symbolId"], "depth": 2})["body"]
-        ref_scale = 10 ** int(p.get("referencePriceScale") or 9)   # priceTicks -> price
-        bids = ob.get("bids") or []
-        asks = ob.get("asks") or []
-        px = None
-        if side == "buy" and asks:
-            px = float(asks[0]["priceTicks"]) / ref_scale
-        elif side == "sell" and bids:
-            px = float(bids[0]["priceTicks"]) / ref_scale
-        if not px:
+        levels = self._levels(p, side)
+        band_narrow = float(os.environ.get("POLY_BAND_BPS", "40"))
+        band_wide = float(os.environ.get("POLY_BAND_BPS_WIDE", "120"))
+        min_entry = float(os.environ.get("POLY_MIN_ENTRY", "100"))
+        px, room = self._band(levels, side, band_narrow)
+        band_used = band_narrow
+        if px is None:
             # fall back to last trade price
             tr = self.poly.call("marketdata.v1.MarketDataService/GetTrades",
                                 {"symbolId": p["symbolId"], "limit": 1})["body"]
@@ -317,8 +380,19 @@ class Bot:
         min_notional = float(p.get("minNotionalQuote") or 0)
         if qty_base is not None:
             qty = qty_base
+            band_used = band_wide          # exits must get out; they are already exposed
         else:
-            qty = max(quote_usd / px, min_qty)
+            if room < min_entry:           # book can't absorb a full entry inside 40 bps
+                _b2, room2 = self._band(levels, side, band_wide)
+                if room2 >= min_entry:
+                    room, band_used = room2, band_wide
+                    log(f"thin book {symbol}: only ${room:,.0f} inside {band_wide:.0f}bps -> sizing down")
+                else:
+                    log(f"book too thin for {symbol}: ${room:,.0f}@{band_narrow:.0f}bps "
+                        f"/ ${room2:,.0f}@{band_wide:.0f}bps vs min ${min_entry:.0f} -> skip")
+                    return None
+            qty = min(float(quote_usd), room) / px
+            qty = max(qty, min_qty)
             if qty * px < min_notional:
                 qty = min_notional / px
         # round to step (down for sells so we never exceed position)
@@ -329,11 +403,12 @@ class Bot:
             log("qty rounds to 0, skip", symbol)
             return None
         base_qty_scaled = int(round(qty * (10 ** scale)))
+        slip = int(slippage_bps if slippage_bps is not None else band_used + 20)
         intent = {
             "symbolId": p["symbolId"],
             "side": 1 if side == "buy" else 2,
             "baseQtyScaled": str(base_qty_scaled),
-            "marketIoc": {"maxSlippageBps": slippage_bps},
+            "marketIoc": {"maxSlippageBps": slip},
         }
         t0 = time.time()
         prev = self.poly.preview_order(intent)
@@ -344,43 +419,52 @@ class Bot:
         if r["status"] != 200 or "orderId" not in body:
             return None
         order_id = body["orderId"]
-        # resolve actual filled base qty from our trades
-        filled = None
+        # actual fill: sum EVERY trade of this order (an IOC walking a thin book fills in pieces)
+        filled, avg_px = None, None
         for _ in range(3):
             time.sleep(1.5)
-            filled = self._fill_qty(p["symbolId"], t0, side)
+            filled, avg_px = self._fills(p["symbolId"], t0, side, order_id)
             if filled:
                 break
         if not filled:
-            filled = qty  # fall back to intended qty
+            filled, avg_px = qty, px   # fall back to the intended size and the book price
         try:                      # turnover ledger for the VIP 30d volume requirement
             import voltrack
-            voltrack.add(px * filled, source="order")
+            voltrack.add((avg_px or px) * filled, source="order")
         except Exception:
             pass
-        return {"orderId": order_id, "qty_base": filled, "price": px}
+        return {"orderId": order_id, "qty_base": filled, "price": avg_px or px}
 
-    def _fill_qty(self, symbol_id, t0, side):
+    def _fills(self, symbol_id, t0, side, order_id=None):
+        """(total base qty, average price) across the fills of one order.
+
+        An IOC walking a thin book produces several trade rows; keeping only the largest row
+        under-reported the position (the rest stayed in the account as an untracked bag)."""
         t = self.poly.trades()
         body = (t["body"] or {}) if isinstance(t, dict) else {}
-        p = next((x for x in self.pairs().values()
-                  if x["symbolId"] == symbol_id), {})
+        p = next((x for x in self.pairs().values() if x["symbolId"] == symbol_id), {})
         scale = int(p.get("baseQuantityScale") or 0)
+        ref = 10 ** int(p.get("referencePriceScale") or 9)
         want = "BUY" if side == "buy" else "SELL"
-        best = 0.0
+        qty_tot, notional = 0.0, 0.0
         for tr in (body.get("trades") or []):
             if str(tr.get("symbolId")) != str(symbol_id):
                 continue
-            if tr.get("side") != want:
+            if order_id is not None:
+                oid = tr.get("orderId") if tr.get("orderId") is not None else tr.get("order_id")
+                if str(oid) != str(order_id):
+                    continue
+            elif int(tr.get("tsNs") or 0) / 1e9 < t0 - 5:
                 continue
-            ts = int(tr.get("tsNs") or 0) / 1e9
-            if ts < t0 - 5:
+            if str(tr.get("side") or "").upper() != want:
                 continue
-            # qtyScaled = qty * 10**baseQuantityScale -> convert back to raw base qty
             q = float(tr.get("qtyScaled") or 0) / (10 ** scale)
-            if q > best:
-                best = q
-        return best or None
+            px = float(tr.get("priceTicks") or 0) / ref
+            qty_tot += q
+            notional += q * px
+        if qty_tot <= 0:
+            return None, None
+        return qty_tot, notional / qty_tot
 
     # ---------- orchestrator ----------
     def run_all(self, deposit_eth=0.0, rounds=3):
