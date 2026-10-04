@@ -74,12 +74,19 @@ def weakest_position(poly, pairs_cfg, st):
     return out
 
 
-def size_for(mom):
-    """Flexible notional, floored at MIN_NOTIONAL. |mom| 0.25% -> min, >=1.5% -> max."""
+def size_for(mom, plan=None):
+    """Flexible notional, floored at the plan's floor. |mom| 0.25% -> min, >=1.5% -> ceiling.
+
+    Ceilings come from vipplan (they follow the liquid balance); without a plan we fall
+    back to the static constants so the unit checks keep working."""
+    plan = plan or {}
+    lo = float(plan.get("notional_lo", MIN_NOTIONAL))
+    hi_mo = float(plan.get("notional_hi_mo", MAX_NOTIONAL_MO))
+    hi_dip = float(plan.get("notional_hi_dip", MAX_NOTIONAL_DIP))
     scale = min(abs(mom) / MOM_FULL, 1.0)
-    ceil = MAX_NOTIONAL_MO if mom > 0 else MAX_NOTIONAL_DIP
-    n = MIN_NOTIONAL + (ceil - MIN_NOTIONAL) * scale
-    return float(max(MIN_NOTIONAL, min(ceil, n)))
+    ceil = hi_mo if mom > 0 else hi_dip
+    n = lo + (ceil - lo) * scale
+    return float(max(lo, min(ceil, n)))
 
 
 def load_state():
@@ -134,6 +141,16 @@ def momentum(px):
 
 def run_cycle(bot, poly, pairs_cfg):
     t_start = time.time()
+    # VIP plan: tiers need 30d volume AND avg portfolio, so size/pacing come from the balance
+    try:
+        import vipplan
+        pl = vipplan.plan(bot)
+        log(vipplan.line(pl))
+    except Exception as e:
+        log("vipplan unavailable:", repr(e))
+        pl = {}
+    gross_cap = float(pl.get("gross_cap", MAX_GROSS_NOTIONAL))
+    max_pos = int(pl.get("max_pos", MAX_POS))
     st = load_state()
     actions = []
     closed = []
@@ -195,11 +212,11 @@ def run_cycle(bot, poly, pairs_cfg):
     for pair, sym_id, px, mom in cands:
         if entries >= MAX_ENTRIES_PER_CYCLE:
             break
-        notional = size_for(mom)
+        notional = size_for(mom, pl)
         tag = "mo" if mom > 0 else "dip"
-        if held >= MAX_POS or gross + notional > MAX_GROSS_NOTIONAL:
+        if held >= max_pos or gross + notional > gross_cap:
             if abs(mom) < ROTATE_MIN_MOM:
-                log(f"full: slots {held}/{MAX_POS}, gross {gross:.0f}/{MAX_GROSS_NOTIONAL:.0f} -> skip {pair} (mom {mom*100:+.2f}%)")
+                log(f"full: slots {held}/{max_pos}, gross {gross:.0f}/{gross_cap:.0f} -> skip {pair} (mom {mom*100:+.2f}%)")
                 continue
             weak = weakest_position(poly, pairs_cfg, st)
             if weak is None:

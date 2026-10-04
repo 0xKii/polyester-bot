@@ -53,6 +53,8 @@ def main():
     try:
         import voltrack
         print(voltrack.line())
+        import vipplan
+        print(vipplan.line(vipplan.plan(bot)))
     except Exception:
         pass
     bot.close()

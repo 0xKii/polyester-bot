@@ -93,6 +93,30 @@ Round-trips are market (taker) orders: each round costs roughly `spread + 2 x ta
 (measured: ETH-USDT spread ~11 bps, so ~41 bps per round-trip, i.e. ~$410 per $100K of turnover).
 `recon/volume.json` tracks daily/lifetime turnover and the % of the VIP-1 volume bar.
 
+## VIP tier autopilot (`vipplan.py`)
+
+Tier requirements are an AND of two 30-day numbers, so volume alone never moves the tier:
+
+| tier | 30d volume | avg portfolio |
+|------|-----------|---------------|
+| VIP 1 | $100K | $50K |
+| VIP 2 | $500K | $100K |
+| VIP 3 | $1M | $250K |
+
+Every cycle `vipplan.plan()` values the portfolio (trading **and** funding balances; `t*`
+variants are priced off their base asset), reads the turnover ledger, picks the first tier not
+yet satisfied on both bars, and returns the order ceilings + gross cap + a pace multiplier:
+
+- per-entry ceiling = `max(600, 10% of liquid stablecoin × mult)` — order size grows with the
+  balance, so the bot automatically trades bigger as the daily claims accumulate
+- gross cap = `max(3000, 80% of liquid stablecoin)`
+- `mult = clamp(daily_target / pace, 1.0, 2.0)` — it only ever pushes volume **up** when the
+  pace falls behind the tier's daily target (bar/30 × 1.15); it never throttles below base size
+
+`tools/backfill_volume.py` rebuilds `recon/volume.json` from the exchange's own transfer log
+(`ListTransfers`, TRADE_QUOTE rows) — the live ledger only sees orders placed while the process
+was up, the exchange one covers everything.
+
 State is kept in `recon/positions.json` (gitignored).
 
 ## Scheduled runs (example)
