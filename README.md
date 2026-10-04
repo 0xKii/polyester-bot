@@ -78,6 +78,21 @@ Order size is flexible but **floored at $100** per entry: `MIN_NOTIONAL + (ceili
 | Stop loss | -0.6% |
 | Momentum band | +/-0.12% |
 
+## Fee tiers (VIP) and volume farming (`vipfarm.py`)
+
+`GetSpotFeeRates` (payload `{}`) returns the live maker/taker rates + `vipTier`; at VIP 0 they are
+0.1% / 0.15% per side. Tiers need **30-day volume AND average portfolio value**
+(VIP 1: $100K / $50K, VIP 2: $500K / $100K, ... VIP 10: $500M / $100M).
+
+```bash
+python3 vipfarm.py probe [topN]                  # spread + depth per pair, picks the farm pair
+python3 vipfarm.py run [rounds] [notional] [pair]  # buy -> sell round-trips, ledger in recon/volume.json
+```
+
+Round-trips are market (taker) orders: each round costs roughly `spread + 2 x taker fee`
+(measured: ETH-USDT spread ~11 bps, so ~41 bps per round-trip, i.e. ~$410 per $100K of turnover).
+`recon/volume.json` tracks daily/lifetime turnover and the % of the VIP-1 volume bar.
+
 State is kept in `recon/positions.json` (gitignored).
 
 ## Scheduled runs (example)
