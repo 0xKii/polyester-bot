@@ -42,7 +42,7 @@ def main():
     # varied multi-pair strategy cycle (momentum/dip entries + TP/SL exits)
     import strat
     pairs_cfg = bot.pairs()
-    res = strat.run_cycle(bot, bot.poly, pairs_cfg, picks=6)
+    res = strat.run_cycle(bot, bot.poly, pairs_cfg)
     st = bot.claim_status()
     bal = bot.non_zero_balances()
     assets = sorted({b.get("assetId") for b in bal})

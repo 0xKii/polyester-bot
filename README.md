@@ -52,26 +52,31 @@ python3 polybot.py trade [rounds]    # quick BTC-USDT alternating buy/sell (smok
 Runs on the 13 USDT-quoted pairs. Each cycle:
 
 1. **Exit** held positions at take-profit / stop-loss (exits at mid price).
-2. **Scan** up to `picks` random pairs, compute 5-minute momentum vs SMA12:
-   - `> +0.25%` -> trend buy, **$100-$200** scaled by momentum strength
-   - `< -0.25%` -> dip buy, **$100-$150** scaled by drop depth
+2. **Rank** every USDT-quoted pair by 5-minute momentum vs SMA12:
+   - `> +0.12%` -> trend buy, **$100-$200** scaled by momentum strength
+   - `< -0.12%` -> dip buy, **$100-$150** scaled by drop depth
    - flat -> skip
-3. Max **6** concurrent positions (gross exposure capped at $700 so it stays under the liquid
-   quote balance).
+3. **Enter** the strongest signals first, at most **4** new entries per cycle.
+4. **Rotate**: when slots/notional are full, a position down >=0.5% is closed to make room
+   for a signal >=0.8% (keeps capital working instead of idling for hours).
+5. Max **10** concurrent positions; gross exposure capped at **$2200**.
 
 Order size is flexible but **floored at $100** per entry: `MIN_NOTIONAL + (ceiling - MIN) * min(|mom| / 1.5%, 1)`
-(see `size_for()` in `strat.py`). A weak 0.25% signal still buys $100; a >=1.5% signal buys the ceiling.
+(see `size_for()` in `strat.py`). A weak 0.12% signal still buys $100; a >=1.5% signal buys the ceiling.
 
 | Param | Value |
 |---|---|
 | Min notional (floor) | $100 |
 | Max notional (trend buy) | $200 |
 | Max notional (dip buy) | $150 |
-| Max gross exposure | $700 |
-| Take profit | +1.2% |
-| Stop loss | -0.8% |
-| Momentum band | +/-0.25% |
-| Max positions | 6 |
+| Max gross exposure | $2200 |
+| Max positions | 10 |
+| Max new entries / cycle | 4 |
+| Rotation: min signal | +-0.8% |
+| Rotation: weakest must be down | -0.5% |
+| Take profit | +0.9% |
+| Stop loss | -0.6% |
+| Momentum band | +/-0.12% |
 
 State is kept in `recon/positions.json` (gitignored).
 

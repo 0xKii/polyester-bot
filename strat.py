@@ -1,19 +1,23 @@
 """Multi-pair momentum/mean-reversion strategy for Polyester testnet.
 
 Per cycle:
-  - check held positions: TP +1.2% / SL -0.8% (exit at mid)
-  - pick up to `picks` random USDT pairs; momentum on 5m candles:
-      up-momentum  (> +0.25% vs SMA12)  -> trend buy, $100-$200 scaled by strength
-      down-momentum (< -0.25%)          -> dip buy,   $100-$150 scaled by depth
+  - check held positions: TP +0.9% / SL -0.6% (exit at mid)
+  - rank EVERY USDT pair by 5m-candle momentum vs SMA12:
+      up-momentum  (> +0.12% vs SMA12)  -> trend buy, $100-$200 scaled by strength
+      down-momentum (< -0.12%)          -> dip buy,   $100-$150 scaled by depth
       flat                              -> skip
-  - max 6 concurrent base positions (gross capped at MAX_GROSS_NOTIONAL); every entry is >= $100 notional
+  - enter strongest signals first, at most MAX_ENTRIES_PER_CYCLE per cycle
+  - when full, rotate a real loser (<= ROTATE_WEAK_PCT) out for a clearly stronger
+    signal (>= ROTATE_MIN_MOM), so slots keep working instead of idling
+  - max 10 concurrent positions, gross exposure capped at MAX_GROSS_NOTIONAL;
+    every entry is >= $100 notional
 
 Size is flexible but floored at MIN_NOTIONAL ($100): the stronger the signal the
 larger the order, capped at MAX_NOTIONAL_MO / MAX_NOTIONAL_DIP.
 
 State: recon/positions.json  {pair: {symbolId, qty, entry_px, entry_ts, pnl_closed, base_asset_id}}
 """
-import json, time, random, sys
+import json, time, sys
 from pathlib import Path
 
 STATE = Path(__file__).resolve().parent / "recon" / "positions.json"
@@ -34,11 +38,40 @@ MIN_NOTIONAL = 100.0        # hard floor: no entry below this
 MAX_NOTIONAL_MO = 200.0     # trend buy ceiling (strong momentum)
 MAX_NOTIONAL_DIP = 150.0    # dip buy ceiling (deep drop)
 MOM_FULL = 0.015            # |momentum| that reaches the ceiling (1.5%)
-TP_PCT = 0.012
-SL_PCT = -0.008
-MOMENTUM_BAND = 0.0025
-MAX_POS = 6
-MAX_GROSS_NOTIONAL = 700.0  # keep total open exposure under the liquid quote balance
+TP_PCT = 0.009
+SL_PCT = -0.006
+MOMENTUM_BAND = 0.0012
+MAX_POS = 10
+MAX_GROSS_NOTIONAL = 2200.0  # keep total open exposure under the liquid quote balance
+MAX_ENTRIES_PER_CYCLE = 4    # pace the churn: at most N new entries per cycle
+ROTATE_MIN_MOM = 0.008       # only rotate a loser out for a >=0.8% signal
+ROTATE_WEAK_PCT = -0.5       # ...and only when the weakest position is down >=0.5%
+
+
+def pos_pct(poly, pairs_cfg, pair, pos):
+    """Live (price, pct vs entry) for an open position."""
+    p = pairs_cfg.get(pair)
+    if not p:
+        return None, None
+    ref = 10 ** int(p.get("referencePriceScale") or 9)
+    mid = mid_price(poly, pos["symbolId"])
+    if mid is None:
+        return None, None
+    px = mid / ref
+    entry = pos.get("entry_px") or 0
+    return px, ((px / entry - 1.0) * 100 if entry else 0.0)
+
+
+def weakest_position(poly, pairs_cfg, st):
+    """Least profitable open position, only when it is a real loser (<= ROTATE_WEAK_PCT)."""
+    out = None
+    for q, pos in st.items():
+        px, pct = pos_pct(poly, pairs_cfg, q, pos)
+        if pct is None:
+            continue
+        if pct <= ROTATE_WEAK_PCT and (out is None or pct < out[2]):
+            out = (q, px, pct)
+    return out
 
 
 def size_for(mom):
@@ -99,7 +132,7 @@ def momentum(px):
     return px[-1] / sma - 1.0
 
 
-def run_cycle(bot, poly, pairs_cfg, picks=5):
+def run_cycle(bot, poly, pairs_cfg):
     st = load_state()
     actions = []
     closed = []
@@ -132,36 +165,60 @@ def run_cycle(bot, poly, pairs_cfg, picks=5):
 
     held = len(st)
     gross = sum((v.get("entry_px") or 0) * (v.get("qty") or 0) for v in st.values())
-    # --- entries ---
-    chosen = [p for p in random.sample(list(USDT_PAIRS), min(picks, len(USDT_PAIRS))) if p not in st]
-    for pair in chosen:
-        if held >= MAX_POS:
-            break
-        sym_id = USDT_PAIRS[pair]
+
+    # --- candidates: scan EVERY USDT pair and rank by signal strength (no random sample) ---
+    cands = []
+    for pair, sym_id in USDT_PAIRS.items():
+        if pair in st:
+            continue
         p = pairs_cfg.get(pair)
         if not p:
             continue
-        ref = 10 ** int(p.get("referencePriceScale") or 9)
         px_series = candles_5m(poly, sym_id)
         if not px_series:
             continue
         mid = mid_price(poly, sym_id)
         if mid is None:
             continue
-        px = mid / ref
+        px = mid / (10 ** int(p.get("referencePriceScale") or 9))
         mom = momentum(px_series)
-        if mom > MOMENTUM_BAND:
-            notional, tag = size_for(mom), "mo"
-        elif mom < -MOMENTUM_BAND:
-            notional, tag = size_for(mom), "dip"
-        else:
-            continue  # flat -> skip
-        if gross + notional > MAX_GROSS_NOTIONAL:
-            log(f"skip {pair}: gross {gross:.0f} + {notional:.0f} > cap {MAX_GROSS_NOTIONAL:.0f}")
-            continue
+        if abs(mom) > MOMENTUM_BAND:
+            cands.append((pair, sym_id, px, mom))
+        time.sleep(0.2)
+    cands.sort(key=lambda c: -abs(c[3]))
+
+    # --- entries: strongest signals first, rotating a real loser out when we are full ---
+    entries = 0
+    for pair, sym_id, px, mom in cands:
+        if entries >= MAX_ENTRIES_PER_CYCLE:
+            break
+        notional = size_for(mom)
+        tag = "mo" if mom > 0 else "dip"
+        if held >= MAX_POS or gross + notional > MAX_GROSS_NOTIONAL:
+            if abs(mom) < ROTATE_MIN_MOM:
+                log(f"full: slots {held}/{MAX_POS}, gross {gross:.0f}/{MAX_GROSS_NOTIONAL:.0f} -> skip {pair} (mom {mom*100:+.2f}%)")
+                continue
+            weak = weakest_position(poly, pairs_cfg, st)
+            if weak is None:
+                log(f"full, no loser to rotate for {pair} (mom {mom*100:+.2f}%)")
+                continue
+            q, qpx, qpct = weak
+            r = bot.market_order(symbol=q, side="sell", quote_usd=0,
+                                 qty_base=st[q].get("qty"), slippage_bps=1000)
+            if r is None:
+                continue
+            pnl = (qpx - st[q]["entry_px"]) * st[q].get("qty", 0)
+            closed.append((q, round(qpct, 2), round(pnl, 2)))
+            del st[q]
+            held = len(st)
+            gross = sum((v.get("entry_px") or 0) * (v.get("qty") or 0) for v in st.values())
+            save_state(st)
+            actions.append(f"rotate {q} {qpct:+.2f}% -> {pair} ({mom*100:+.2f}%)")
+            time.sleep(2)
         r = bot.market_order(symbol=pair, side="buy", quote_usd=notional, slippage_bps=500)
         if r is not None:
             held += 1
+            entries += 1
             gross += notional
             st[pair] = {"symbolId": sym_id, "qty": r["qty_base"], "entry_px": px,
                         "entry_ts": time.time(), "tag": tag, "pnl_closed": 0.0,

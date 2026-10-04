@@ -14,7 +14,9 @@ from polybot import Bot
 from poly import Poly
 import strat
 
-picks = int(sys.argv[1]) if len(sys.argv) > 1 else 6
+# argv[1] is accepted for backwards compatibility only: the cycle now scans every USDT pair
+# and ranks candidates by signal strength, so a "picks" count is meaningless.
+picks = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else None
 
 
 def main():
@@ -27,7 +29,7 @@ def main():
     pairs_cfg = bot.pairs()
 
     before = time.time()
-    res = strat.run_cycle(bot, poly, pairs_cfg, picks=picks)
+    res = strat.run_cycle(bot, poly, pairs_cfg)
     acts = res.get("actions") or []
     closed = res.get("closed") or []
 
