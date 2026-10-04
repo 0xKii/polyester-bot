@@ -81,11 +81,14 @@ class Poly:
             try:
                 if not self._usable():
                     self._recover()
+                    if not self._usable():
+                        raise RuntimeError("cloudflare challenge: page not usable")
                 return self.page.evaluate(JS_CALL, [API, path, payload or {}, self.token()])
             except Exception as e:
                 last = e
+                if CB.cf_budget_left() < 5:
+                    break   # fail fast: the wrapper timeout must not be the thing that fails
                 time.sleep(2 + 3 * i)
-                self._recover()
         raise last
 
     # ---- convenience wrappers ----

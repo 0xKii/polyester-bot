@@ -133,6 +133,7 @@ def momentum(px):
 
 
 def run_cycle(bot, poly, pairs_cfg):
+    t_start = time.time()
     st = load_state()
     actions = []
     closed = []
@@ -159,9 +160,10 @@ def run_cycle(bot, poly, pairs_cfg):
                 pos["pnl_closed"] = round(pos.get("pnl_closed", 0.0) + pnl, 4)
                 del st[pair]
                 actions.append(f"exit {pair} {pct:+.2f}%")
-            time.sleep(2)
+            time.sleep(1.5)
     if st:
         save_state(st)
+    log(f"phase exits: {time.time()-t_start:.0f}s ({len(st)} open)")
 
     held = len(st)
     gross = sum((v.get("entry_px") or 0) * (v.get("qty") or 0) for v in st.values())
@@ -184,8 +186,9 @@ def run_cycle(bot, poly, pairs_cfg):
         mom = momentum(px_series)
         if abs(mom) > MOMENTUM_BAND:
             cands.append((pair, sym_id, px, mom))
-        time.sleep(0.2)
+        time.sleep(0.05)
     cands.sort(key=lambda c: -abs(c[3]))
+    log(f"phase scan: {time.time()-t_start:.0f}s ({len(cands)} signals)")
 
     # --- entries: strongest signals first, rotating a real loser out when we are full ---
     entries = 0
@@ -225,10 +228,11 @@ def run_cycle(bot, poly, pairs_cfg):
                         "orderId": r.get("orderId")}
             save_state(st)
             actions.append(f"buy {pair} {notional:.0f}U qty={r['qty_base']:.6g} mom={mom*100:+.2f}% @{px:.2f}")
-        time.sleep(2)
+        time.sleep(1.5)
 
     # report
     open_pos = ", ".join(f"{k}({v.get('tag')})" for k, v in st.items()) or "-"
     tot_pnl = sum(v.get("pnl_closed", 0.0) for v in st.values()) + sum(c[2] for c in closed)
+    log(f"phase entries: {time.time()-t_start:.0f}s (cycle total) | open=[{open_pos}]")
     log(f"strat | open=[{open_pos}] | closed={closed if closed else '-'} | actions={actions if actions else '-'} | cumPnL={tot_pnl:+.3f}")
     return {"actions": actions, "closed": closed}

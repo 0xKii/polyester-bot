@@ -21,6 +21,21 @@ INJECT = (ROOT / "wallet_provider.js").read_text()
 CF_TEXT = ("just a moment", "performing security verification",
            "verifying you are human", "security verification", "attention required")
 
+# Wall-clock budget for waiting out challenges in ONE process. Without it, a run that hits a
+# challenge fires pass_cf() several times (login + each retry), burns the wrapper's whole
+# timeout and dies as rc=124 with no useful output instead of failing fast.
+CF_PROCESS_BUDGET = float(os.getenv("POLY_CF_BUDGET", "150"))
+_cf_spent = 0.0
+
+
+def cf_budget_left() -> float:
+    return max(0.0, CF_PROCESS_BUDGET - _cf_spent)
+
+
+def cf_budget_reset():
+    global _cf_spent
+    _cf_spent = 0.0
+
 
 def log(*a):
     print(*a, flush=True)
@@ -90,33 +105,42 @@ def pass_cf(page, timeout=180, label="") -> bool:
 
     Reloading an active challenge is what pushes CF from auto-pass into the long
     rate-limited jitter, so the reload is late (>=120s stall) and happens at most once.
+    Bounded by the per-process challenge budget so a blocked page cannot eat the whole run.
     """
+    global _cf_spent
+    timeout = min(timeout, cf_budget_left())
+    if timeout < 5:
+        print(f"  [cf{label}] budget exhausted ({_cf_spent:.0f}s spent) — not waiting", flush=True)
+        return False
     t0 = time.time()
     last_click = 0
     clicks = 0
     reloads = 0
-    while time.time() - t0 < timeout:
-        if not is_challenge(page):
-            print(f"  [cf{label}] passed in {time.time()-t0:.1f}s", flush=True)
-            return True
-        now = time.time()
-        if clicks < 8 and now - last_click > 5:
-            if click_turnstile(page):
-                clicks += 1
-                last_click = now
-                print(f"  [cf{label}] clicked checkbox #{clicks}", flush=True)
-        # stall -> a single late reload (never more: reloading feeds the rate limiter)
-        if reloads < 1 and now - t0 > 120 and now - max(last_click, t0) > 120:
-            try:
-                page.reload(wait_until="domcontentloaded", timeout=45000)
-            except Exception:
-                pass
-            reloads += 1
-            last_click = time.time()
-            clicks = 0
-            print(f"  [cf{label}] single reload after {now-t0:.0f}s", flush=True)
-        time.sleep(1.5)
-    print(f"  [cf{label}] TIMEOUT after {timeout}s", flush=True)
+    try:
+        while time.time() - t0 < timeout:
+            if not is_challenge(page):
+                print(f"  [cf{label}] passed in {time.time()-t0:.1f}s", flush=True)
+                return True
+            now = time.time()
+            if clicks < 8 and now - last_click > 5:
+                if click_turnstile(page):
+                    clicks += 1
+                    last_click = now
+                    print(f"  [cf{label}] clicked checkbox #{clicks}", flush=True)
+            # stall -> a single late reload (never more: reloading feeds the rate limiter)
+            if reloads < 1 and now - t0 > 120 and now - max(last_click, t0) > 120:
+                try:
+                    page.reload(wait_until="domcontentloaded", timeout=45000)
+                except Exception:
+                    pass
+                reloads += 1
+                last_click = time.time()
+                clicks = 0
+                print(f"  [cf{label}] single reload after {now-t0:.0f}s", flush=True)
+            time.sleep(1.5)
+    finally:
+        _cf_spent += time.time() - t0
+    print(f"  [cf{label}] TIMEOUT after {timeout:.0f}s (budget left {cf_budget_left():.0f}s)", flush=True)
     return False
 
 
