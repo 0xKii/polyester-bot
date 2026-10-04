@@ -54,6 +54,11 @@ def main():
           f"acts={len(acts)} closed={len(closed)}")
     for a in acts:
         print(f"  - {a}")
+    try:
+        import voltrack
+        polybot.log(voltrack.line())
+    except Exception:
+        pass
     bot.close()
 
 

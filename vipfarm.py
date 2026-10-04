@@ -13,24 +13,19 @@ import json, os, sys, time
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import voltrack
 
 STATE = Path(__file__).resolve().parent / "recon" / "volume.json"
-TARGET_30D = float(os.getenv("VIP_TARGET_VOLUME", "100000"))
+TARGET_30D = float(os.getenv("VIP_TARGET_VOLUME", str(voltrack.TARGET_30D)))
 CANDIDATE_PAIRS = ("BTC-USDT", "ETH-USDT", "SOL-USDT", "BNB-USDT", "ETH-USDC", "SOL-USDC")
 
 
 def load_state():
-    if STATE.exists():
-        try:
-            return json.loads(STATE.read_text())
-        except Exception:
-            pass
-    return {"days": {}, "total_turnover": 0.0, "total_fees": 0.0, "rounds": 0}
+    return voltrack.load()
 
 
 def save_state(st):
-    STATE.parent.mkdir(parents=True, exist_ok=True)
-    STATE.write_text(json.dumps(st, indent=1))
+    voltrack.save(st)
 
 
 def probed(poly, pairs_cfg, names=CANDIDATE_PAIRS):
@@ -71,8 +66,6 @@ def cmd_probe(poly, pairs_cfg, topn=6):
 
 
 def cmd_run(bot, poly, pairs_cfg, rounds=10, notional=500.0, pair=None):
-    st = load_state()
-    day = time.strftime("%Y-%m-%d")
     rows = probed(poly, pairs_cfg)
     if pair is None:
         pair = rows[0][0] if rows else "BTC-USDT"
@@ -80,7 +73,8 @@ def cmd_run(bot, poly, pairs_cfg, rounds=10, notional=500.0, pair=None):
     if not p:
         print(f"unknown pair {pair}")
         return
-    print(f"farming {pair}: {rounds} round-trips x ${notional:.0f}/leg (target ${TARGET_30D:,.0f})")
+    print(f"farming {pair}: {rounds} round-trips x ${notional:.0f}/leg "
+          f"(target ${TARGET_30D:,.0f} — ledger fills automatically from every order)")
     made = 0
     start = time.time()
     for i in range(rounds):
@@ -92,19 +86,12 @@ def cmd_run(bot, poly, pairs_cfg, rounds=10, notional=500.0, pair=None):
         r2 = bot.market_order(symbol=pair, side="sell", quote_usd=0, qty_base=qty, slippage_bps=800)
         if r2 is None:
             print(f"  round {i+1}: SELL failed (holding {qty:g} {pair.split('-')[0]})")
-        turnover = notional * 2
-        st["days"][day] = st["days"].get(day, 0.0) + turnover
-        st["total_turnover"] = st.get("total_turnover", 0.0) + turnover
-        st["rounds"] = st.get("rounds", 0) + 1
         made += 1
-        save_state(st)
-        elapsed = time.time() - start
-        print(f"  round {i+1}/{rounds}: ${turnover:,.0f} turnover | day ${st['days'][day]:,.0f} | "
-              f"total ${st['total_turnover']:,.0f} | {elapsed:.0f}s")
+        snap = voltrack.snapshot()
+        print(f"  round {i+1}/{rounds}: turnover ${notional*2:,.0f} | today ${snap['today']:,.0f} | "
+              f"30d ${snap['total']:,.0f} ({snap['pct']:.1f}%) | {time.time()-start:.0f}s")
         time.sleep(1.0)
-    print(f"done: {made} rounds, ${made*notional*2:,.0f} turnover this run, "
-          f"${st['days'][day]:,.0f} today, ${st['total_turnover']:,.0f} lifetime "
-          f"({st['total_turnover']/TARGET_30D*100:.1f}% of the ${TARGET_30D:,.0f} VIP-1 volume bar)")
+    print(f"done: {made} rounds (~${made*notional*2:,.0f} turnover). {voltrack.line()}")
 
 
 def main():
@@ -120,6 +107,8 @@ def main():
         pairs_cfg = bot.pairs()
         if cmd == "probe":
             cmd_probe(bot.poly, pairs_cfg, int(args[1]) if len(args) > 1 else 6)
+        elif cmd == "status":
+            print(voltrack.line())
         elif cmd == "run":
             rounds = int(args[1]) if len(args) > 1 else 10
             notional = float(args[2]) if len(args) > 2 else 500.0

@@ -34,15 +34,15 @@ USDT_PAIRS = {
     "HYPE-USDT": 18,
 }
 
-MIN_NOTIONAL = 100.0        # hard floor: no entry below this
-MAX_NOTIONAL_MO = 200.0     # trend buy ceiling (strong momentum)
-MAX_NOTIONAL_DIP = 150.0    # dip buy ceiling (deep drop)
+MIN_NOTIONAL = 300.0        # hard floor: no entry below this (also pushes 30d volume up)
+MAX_NOTIONAL_MO = 600.0     # trend buy ceiling (strong momentum)
+MAX_NOTIONAL_DIP = 450.0    # dip buy ceiling (deep drop)
 MOM_FULL = 0.015            # |momentum| that reaches the ceiling (1.5%)
 TP_PCT = 0.009
 SL_PCT = -0.006
 MOMENTUM_BAND = 0.0012
 MAX_POS = 10
-MAX_GROSS_NOTIONAL = 2200.0  # keep total open exposure under the liquid quote balance
+MAX_GROSS_NOTIONAL = 3000.0  # keep total open exposure under the liquid quote balance
 MAX_ENTRIES_PER_CYCLE = 4    # pace the churn: at most N new entries per cycle
 ROTATE_MIN_MOM = 0.008       # only rotate a loser out for a >=0.8% signal
 ROTATE_WEAK_PCT = -0.5       # ...and only when the weakest position is down >=0.5%

@@ -50,6 +50,11 @@ def main():
           f"claim={st.get('state')} reset={st.get('resetAt')} | "
           f"actions={res['actions'] if res['actions'] else '-'} closed={res['closed'] if res['closed'] else '-'} | "
           f"assets={assets}")
+    try:
+        import voltrack
+        print(voltrack.line())
+    except Exception:
+        pass
     bot.close()
 
 

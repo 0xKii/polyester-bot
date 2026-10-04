@@ -268,7 +268,12 @@ class Bot:
         bal = self.wallet.rpc("eth_getBalance", json.dumps([self.wallet.address, "latest"]))
         log(f"wallet {self.wallet.address} sepETH balance: {int(bal, 16)/1e18:.6f}")
         wei = int(float(amount_eth) * 1e18)
-        tx = {"to": addr, "value": hex(wei)}
+        try:
+            from eth_utils import to_checksum_address
+            to_addr = to_checksum_address(addr)      # eth_account rejects all-lowercase `to`
+        except Exception:
+            to_addr = addr
+        tx = {"to": to_addr, "value": hex(wei)}
         txh = self.wallet.send_tx(tx)
         log("deposit tx:", txh)
         return txh
@@ -348,6 +353,11 @@ class Bot:
                 break
         if not filled:
             filled = qty  # fall back to intended qty
+        try:                      # turnover ledger for the VIP 30d volume requirement
+            import voltrack
+            voltrack.add(px * filled, source="order")
+        except Exception:
+            pass
         return {"orderId": order_id, "qty_base": filled, "price": px}
 
     def _fill_qty(self, symbol_id, t0, side):

@@ -91,7 +91,9 @@ class WalletBridge:
             except Exception:
                 tx["gasPrice"] = int(self.rpc("eth_gasPrice", json.dumps([])), 16)
         signed = Account.sign_transaction(tx, private_key=self.pk)
-        raw = signed.raw_transaction.hex()
+        # eth_account <0.12 exposes rawTransaction, >=0.12 raw_transaction
+        raw = getattr(signed, "raw_transaction", None) or getattr(signed, "rawTransaction")
+        raw = raw.hex() if hasattr(raw, "hex") else str(raw)
         if not raw.startswith("0x"):
             raw = "0x" + raw
         return self.rpc("eth_sendRawTransaction", json.dumps([raw]))
